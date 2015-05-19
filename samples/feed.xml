@@ -1,0 +1,2246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:sy="http://purl.org/rss/1.0/modules/syndication/"
+	xmlns:slash="http://purl.org/rss/1.0/modules/slash/"
+>
+
+<channel>
+	<title>酷 壳 - CoolShell.cn</title>
+	<atom:link href="http://coolshell.cn/feed" rel="self" type="application/rss+xml" />
+	<link>http://coolshell.cn</link>
+	<description>享受编程和技术所带来的快乐 - http://coolshell.cn</description>
+	<lastBuildDate>Fri, 17 Apr 2015 03:51:03 +0000</lastBuildDate>
+	<language>zh-CN</language>
+	<sy:updatePeriod>hourly</sy:updatePeriod>
+	<sy:updateFrequency>1</sy:updateFrequency>
+	<generator>http://wordpress.org/?v=4.1.5</generator>
+	<item>
+		<title>Docker基础技术：Linux CGroup</title>
+		<link>http://coolshell.cn/articles/17049.html</link>
+		<comments>http://coolshell.cn/articles/17049.html#comments</comments>
+		<pubDate>Fri, 17 Apr 2015 01:03:57 +0000</pubDate>
+		<dc:creator><![CDATA[陈皓]]></dc:creator>
+				<category><![CDATA[Unix/Linux]]></category>
+		<category><![CDATA[操作系统]]></category>
+		<category><![CDATA[杂项资源]]></category>
+		<category><![CDATA[cgroup]]></category>
+		<category><![CDATA[Docker]]></category>
+		<category><![CDATA[Linux]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=17049</guid>
+		<description><![CDATA[前面，我们介绍了Linux Namespace，但是Namespace解决的问题主要是环境隔离的问题，这只是虚 [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p><img src="http://coolshell.cn//wp-content/uploads/2015/04/filter.png" alt="filter" width="224" height="225" class="alignright size-full wp-image-17097" />前面，我们介绍了<a title="Docker基础技术：Linux Namespace" href="http://coolshell.cn/articles/17010.html" target="_blank">Linux Namespace</a>，但是Namespace解决的问题主要是环境隔离的问题，这只是虚拟化中最最基础的一步，我们还需要解决对计算机资源使用上的隔离。也就是说，虽然你通过Namespace把我Jail到一个特定的环境中去了，但是我在其中的进程使用用CPU、内存、磁盘等这些计算资源其实还是可以随心所欲的。所以，我们希望对进程进行资源利用上的限制或控制。这就是Linux CGroup出来了的原因。</p>
+<p>Linux CGroup全称Linux Control Group， 是Linux内核的一个功能，用来限制，控制与分离一个进程组群的资源（如CPU、内存、磁盘输入输出等）。这个项目最早是由Google的工程师在2006年发起（主要是Paul Menage和Rohit Seth），最早的名称为进程容器（process containers）。在2007年时，因为在Linux内核中，容器（container）这个名词太过广泛，为避免混乱，被重命名为cgroup，并且被合并到2.6.24版的内核中去。然后，其它开始了他的发展。</p>
+<p>Linux CGroupCgroup 可​​​让​​​您​​​为​​​系​​​统​​​中​​​所​​​运​​​行​​​任​​​务​​​（进​​​程​​​）的​​​用​​​户​​​定​​​义​​​组​​​群​​​分​​​配​​​资​​​源​​​ &#8212; 比​​​如​​​ CPU 时​​​间​​​、​​​系​​​统​​​内​​​存​​​、​​​网​​​络​​​带​​​宽​​​或​​​者​​​这​​​些​​​资​​​源​​​的​​​组​​​合​​​。​​​您​​​可​​​以​​​监​​​控​​​您​​​配​​​置​​​的​​​ cgroup，拒​​​绝​​​ cgroup 访​​​问​​​某​​​些​​​资​​​源​​​，甚​​​至​​​在​​​运​​​行​​​的​​​系​​​统​​​中​​​动​​​态​​​配​​​置​​​您​​​的​​​ cgroup。</p>
+<p>主要提供了如下功能：</p>
+<p><span id="more-17049"></span></p>
+<ul>
+<li><strong>Resource limitation</strong>: 限制资源使用，比如内存使用上限以及文件系统的缓存限制。</li>
+<li><strong>Prioritization</strong>: 优先级控制，比如：CPU利用和磁盘IO吞吐。</li>
+<li><strong>Accounting</strong>: 一些审计或一些统计，主要目的是为了计费。</li>
+<li><strong>Control</strong>: 挂起进程，恢复执行进程。</li>
+</ul>
+<p>使​​​用​​​ cgroup，系​​​统​​​管​​​理​​​员​​​可​​​更​​​具​​​体​​​地​​​控​​​制​​​对​​​系​​​统​​​资​​​源​​​的​​​分​​​配​​​、​​​优​​​先​​​顺​​​序​​​、​​​拒​​​绝​​​、​​​管​​​理​​​和​​​监​​​控​​​。​​​可​​​更​​​好​​​地​​​根​​​据​​​任​​​务​​​和​​​用​​​户​​​分​​​配​​​硬​​​件​​​资​​​源​​​，提​​​高​​​总​​​体​​​效​​​率​​​。</p>
+<p>在实践中，系统管理员一般会利用CGroup做下面这些事（有点像为某个虚拟机分配资源似的）：</p>
+<ul>
+<li>隔离一个进程集合（比如：nginx的所有进程），并限制他们所消费的资源，比如绑定CPU的核。</li>
+<li>为这组进程 分配其足够使用的内存</li>
+<li>为这组进程分配相应的网络带宽和磁盘存储限制</li>
+<li>限制访问某些设备（通过设置设备的白名单）</li>
+</ul>
+<p>那么CGroup是怎么干的呢？我们先来点感性认识吧。</p>
+<p>首先，Linux把CGroup这个事实现成了一个file system，你可以mount。在我的Ubuntu 14.04下，你输入以下命令你就可以看到cgroup已为你mount好了。</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ mount -t cgroup
+cgroup on /sys/fs/cgroup/cpuset type cgroup (rw,relatime,cpuset)
+cgroup on /sys/fs/cgroup/cpu type cgroup (rw,relatime,cpu)
+cgroup on /sys/fs/cgroup/cpuacct type cgroup (rw,relatime,cpuacct)
+cgroup on /sys/fs/cgroup/memory type cgroup (rw,relatime,memory)
+cgroup on /sys/fs/cgroup/devices type cgroup (rw,relatime,devices)
+cgroup on /sys/fs/cgroup/freezer type cgroup (rw,relatime,freezer)
+cgroup on /sys/fs/cgroup/blkio type cgroup (rw,relatime,blkio)
+cgroup on /sys/fs/cgroup/net_prio type cgroup (rw,net_prio)
+cgroup on /sys/fs/cgroup/net_cls type cgroup (rw,net_cls)
+cgroup on /sys/fs/cgroup/perf_event type cgroup (rw,relatime,perf_event)
+cgroup on /sys/fs/cgroup/hugetlb type cgroup (rw,relatime,hugetlb)</pre>
+<p>或者使用lssubsys命令：</p>
+<pre class="brush: bash; title: ; notranslate">$ lssubsys  -m
+cpuset /sys/fs/cgroup/cpuset
+cpu /sys/fs/cgroup/cpu
+cpuacct /sys/fs/cgroup/cpuacct
+memory /sys/fs/cgroup/memory
+devices /sys/fs/cgroup/devices
+freezer /sys/fs/cgroup/freezer
+blkio /sys/fs/cgroup/blkio
+net_cls /sys/fs/cgroup/net_cls
+net_prio /sys/fs/cgroup/net_prio
+perf_event /sys/fs/cgroup/perf_event
+hugetlb /sys/fs/cgroup/hugetlb</pre>
+<p>我们可以看到，在/sys/fs下有一个cgroup的目录，这个目录下还有很多子目录，比如： cpu，cpuset，memory，blkio……这些，这些都是cgroup的子系统。分别用于干不同的事的。</p>
+<p>如果你没有看到上述的目录，你可以自己mount，下面给了一个示例：</p>
+<pre class="brush: bash; title: ; notranslate">mkdir cgroup
+mount -t tmpfs cgroup_root ./cgroup
+mkdir cgroup/cpuset
+mount -t cgroup -ocpuset cpuset ./cgroup/cpuset/
+mkdir cgroup/cpu
+mount -t cgroup -ocpu cpu ./cgroup/cpu/
+mkdir cgroup/memory
+mount -t cgroup -omemory memory ./cgroup/memory/</pre>
+<p>一旦mount成功，你就会看到这些目录下就有好文件了，比如，如下所示的cpu和cpuset的子系统：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ ls /sys/fs/cgroup/cpu /sys/fs/cgroup/cpuset/ 
+/sys/fs/cgroup/cpu:
+cgroup.clone_children  cgroup.sane_behavior  cpu.shares         release_agent
+cgroup.event_control   cpu.cfs_period_us     cpu.stat           tasks
+cgroup.procs           cpu.cfs_quota_us      notify_on_release  user
+
+/sys/fs/cgroup/cpuset/:
+cgroup.clone_children  cpuset.mem_hardwall             cpuset.sched_load_balance
+cgroup.event_control   cpuset.memory_migrate           cpuset.sched_relax_domain_level
+cgroup.procs           cpuset.memory_pressure          notify_on_release
+cgroup.sane_behavior   cpuset.memory_pressure_enabled  release_agent
+cpuset.cpu_exclusive   cpuset.memory_spread_page       tasks
+cpuset.cpus            cpuset.memory_spread_slab       user
+cpuset.mem_exclusive   cpuset.mems</pre>
+<p>你可以到/sys/fs/cgroup的各个子目录下去make个dir，你会发现，一旦你创建了一个子目录，这个子目录里又有很多文件了。</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:/sys/fs/cgroup/cpu$ sudo mkdir haoel
+[sudo] password for hchen: 
+hchen@ubuntu:/sys/fs/cgroup/cpu$ ls ./haoel
+cgroup.clone_children  cgroup.procs       cpu.cfs_quota_us  cpu.stat           tasks
+cgroup.event_control   cpu.cfs_period_us  cpu.shares        notify_on_release</pre>
+<p>好了，我们来看几个示例。</p>
+<h4>CPU 限制</h4>
+<p>假设，我们有一个非常吃CPU的程序，叫deadloop，其源码如下：</p>
+<pre class="brush: cpp; title: deadloop.c; notranslate">int main(void)
+{
+    int i = 0;
+    for(;;) i++;
+    return 0;
+}</pre>
+<p>用sudo执行起来后，毫无疑问，CPU被干到了100%（下面是top命令的输出）</p>
+<pre class="brush: bash; title: ; notranslate">  PID USER      PR  NI    VIRT    RES    SHR S %CPU %MEM     TIME+ COMMAND     
+ 3529 root      20   0    4196    736    656 R 99.6  0.1   0:23.13 deadloop   </pre>
+<p>然后，我们这前不是在/sys/fs/cgroup/cpu下创建了一个haoel的group。我们先设置一下这个group的cpu利用的限制：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~# cat /sys/fs/cgroup/cpu/haoel/cpu.cfs_quota_us 
+-1
+root@ubuntu:~# echo 20000 &gt; /sys/fs/cgroup/cpu/haoel/cpu.cfs_quota_us</pre>
+<p>我们看到，这个进程的PID是3529，我们把这个进程加到这个cgroup中：</p>
+<pre class="brush: bash; title: ; notranslate"># echo 3529 &gt;&gt; /sys/fs/cgroup/cpu/haoel/tasks</pre>
+<p>然后，就会在top中看到CPU的利用立马下降成20%了。（前面我们设置的20000就是20%的意思）</p>
+<pre class="brush: bash; title: ; notranslate">  PID USER      PR  NI    VIRT    RES    SHR S %CPU %MEM     TIME+ COMMAND     
+ 3529 root      20   0    4196    736    656 R 19.9  0.1   8:06.11 deadloop    </pre>
+<p>下面的代码是一个线程的示例：</p>
+<pre class="brush: cpp; title: ; notranslate">#define _GNU_SOURCE         /* See feature_test_macros(7) */
+
+#include &lt;pthread.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;sys/stat.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/syscall.h&gt;
+
+
+const int NUM_THREADS = 5;
+
+void *thread_main(void *threadid)
+{
+    /* 把自己加入cgroup中（syscall(SYS_gettid)为得到线程的系统tid） */
+    char cmd[128];
+    sprintf(cmd, &quot;echo %ld &gt;&gt; /sys/fs/cgroup/cpu/haoel/tasks&quot;, syscall(SYS_gettid));
+    system(cmd); 
+    sprintf(cmd, &quot;echo %ld &gt;&gt; /sys/fs/cgroup/cpuset/haoel/tasks&quot;, syscall(SYS_gettid));
+    system(cmd);
+
+    long tid;
+    tid = (long)threadid;
+    printf(&quot;Hello World! It's me, thread #%ld, pid #%ld!\n&quot;, tid, syscall(SYS_gettid));
+    
+    int a=0; 
+    while(1) {
+        a++;
+    }
+    pthread_exit(NULL);
+}
+int main (int argc, char *argv[])
+{
+    int num_threads;
+    if (argc &gt; 1){
+        num_threads = atoi(argv[1]);
+    }
+    if (num_threads&lt;=0 || num_threads&gt;=100){
+        num_threads = NUM_THREADS;
+    }
+
+    /* 设置CPU利用率为50% */
+    mkdir(&quot;/sys/fs/cgroup/cpu/haoel&quot;, 755);
+    system(&quot;echo 50000 &gt; /sys/fs/cgroup/cpu/haoel/cpu.cfs_quota_us&quot;);
+
+    mkdir(&quot;/sys/fs/cgroup/cpuset/haoel&quot;, 755);
+    /* 限制CPU只能使用#2核和#3核 */
+    system(&quot;echo \&quot;2,3\&quot; &gt; /sys/fs/cgroup/cpuset/haoel/cpuset.cpus&quot;);
+
+    pthread_t* threads = (pthread_t*) malloc (sizeof(pthread_t)*num_threads);
+    int rc;
+    long t;
+    for(t=0; t&lt;num_threads; t++){
+        printf(&quot;In main: creating thread %ld\n&quot;, t);
+        rc = pthread_create(&amp;threads[t], NULL, thread_main, (void *)t);
+        if (rc){
+            printf(&quot;ERROR; return code from pthread_create() is %d\n&quot;, rc);
+            exit(-1);
+        }
+    }
+
+    /* Last thing that main() should do */
+    pthread_exit(NULL);
+    free(threads);
+}
+</pre>
+<h4>内存使用限制</h4>
+<p>我们再来看一个限制内存的例子（下面的代码是个死循环，其它不断的分配内存，每次512个字节，每次休息一秒）：</p>
+<pre class="brush: cpp; title: ; notranslate">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;unistd.h&gt;
+
+int main(void)
+{
+    int size = 0;
+    int chunk_size = 512;
+    void *p = NULL;
+
+    while(1) {
+
+        if ((p = malloc(p, chunk_size)) == NULL) {
+            printf(&quot;out of memory!!\n&quot;);
+            break;
+        }
+        memset(p, 1, chunk_size);
+        size += chunk_size;
+        printf(&quot;[%d] - memory is allocated [%8d] bytes \n&quot;, getpid(), size);
+        sleep(1);
+    }
+    return 0;
+}</pre>
+<p>然后，在我们另外一边：</p>
+<pre class="brush: bash; title: ; notranslate"># 创建memory cgroup
+$ mkdir /sys/fs/cgroup/memory/haoel
+$ echo 64k &gt; /sys/fs/cgroup/memory/haoel/memory.limit_in_bytes
+
+# 把上面的进程的pid加入这个cgroup
+$ echo [pid] &gt; /sys/fs/cgroup/memory/haoel/tasks </pre>
+<p>你会看到，一会上面的进程就会因为内存问题被kill掉了。</p>
+<h4>磁盘I/O限制</h4>
+<p>我们先看一下我们的硬盘IO，我们的模拟命令如下：（从/dev/sda1上读入数据，输出到/dev/null上）</p>
+<pre class="brush: bash; title: ; notranslate">sudo dd if=/dev/sda1 of=/dev/null</pre>
+<p>我们通过iotop命令我们可以看到相关的IO速度是55MB/s（虚拟机内）：</p>
+<pre class="brush: bash; title: ; notranslate">  TID  PRIO  USER     DISK READ  DISK WRITE  SWAPIN     IO&gt;    COMMAND          
+ 8128 be/4 root       55.74 M/s    0.00 B/s  0.00 % 85.65 % dd if=/de~=/dev/null...</pre>
+<p>然后，我们先创建一个blkio（块设备IO）的cgroup</p>
+<pre class="brush: bash; title: ; notranslate">mkdir /sys/fs/cgroup/blkio/haoel</pre>
+<p>并把读IO限制到1MB/s，并把前面那个dd命令的pid放进去（注：8:0 是设备号，你可以通过ls -l /dev/sda1获得）：</p>
+<pre class="brush: bash; title: ; notranslate">root@ubuntu:~# echo '8:0 1048576'  &gt; /sys/fs/cgroup/blkio/haoel/blkio.throttle.read_bps_device 
+root@ubuntu:~# echo 8128 &gt; /sys/fs/cgroup/blkio/haoel/tasks</pre>
+<p>再用iotop命令，你马上就能看到读速度被限制到了1MB/s左右。</p>
+<pre class="brush: bash; title: ; notranslate">  TID  PRIO  USER     DISK READ  DISK WRITE  SWAPIN     IO&gt;    COMMAND          
+ 8128 be/4 root      973.20 K/s    0.00 B/s  0.00 % 94.41 % dd if=/de~=/dev/null...</pre>
+<h4>CGroup的子系统</h4>
+<p>好了，有了以上的感性认识我们来，我们来看看control group有哪些子系统：</p>
+<ul>
+<li>blkio &#8212; 这​​​个​​​子​​​系​​​统​​​为​​​块​​​设​​​备​​​设​​​定​​​输​​​入​​​/输​​​出​​​限​​​制​​​，比​​​如​​​物​​​理​​​设​​​备​​​（磁​​​盘​​​，固​​​态​​​硬​​​盘​​​，USB 等​​​等​​​）。</li>
+<li>cpu &#8212; 这​​​个​​​子​​​系​​​统​​​使​​​用​​​调​​​度​​​程​​​序​​​提​​​供​​​对​​​ CPU 的​​​ cgroup 任​​​务​​​访​​​问​​​。​​​</li>
+<li>cpuacct &#8212; 这​​​个​​​子​​​系​​​统​​​自​​​动​​​生​​​成​​​ cgroup 中​​​任​​​务​​​所​​​使​​​用​​​的​​​ CPU 报​​​告​​​。​​​</li>
+<li>cpuset &#8212; 这​​​个​​​子​​​系​​​统​​​为​​​ cgroup 中​​​的​​​任​​​务​​​分​​​配​​​独​​​立​​​ CPU（在​​​多​​​核​​​系​​​统​​​）和​​​内​​​存​​​节​​​点​​​。​​​</li>
+<li>devices &#8212; 这​​​个​​​子​​​系​​​统​​​可​​​允​​​许​​​或​​​者​​​拒​​​绝​​​ cgroup 中​​​的​​​任​​​务​​​访​​​问​​​设​​​备​​​。​​​</li>
+<li>freezer &#8212; 这​​​个​​​子​​​系​​​统​​​挂​​​起​​​或​​​者​​​恢​​​复​​​ cgroup 中​​​的​​​任​​​务​​​。​​​</li>
+<li>memory &#8212; 这​​​个​​​子​​​系​​​统​​​设​​​定​​​ cgroup 中​​​任​​​务​​​使​​​用​​​的​​​内​​​存​​​限​​​制​​​，并​​​自​​​动​​​生​​​成​​​​​内​​​存​​​资​​​源使用​​​报​​​告​​​。​​​</li>
+<li>net_cls &#8212; 这​​​个​​​子​​​系​​​统​​​使​​​用​​​等​​​级​​​识​​​别​​​符​​​（classid）标​​​记​​​网​​​络​​​数​​​据​​​包​​​，可​​​允​​​许​​​ Linux 流​​​量​​​控​​​制​​​程​​​序​​​（tc）识​​​别​​​从​​​具​​​体​​​ cgroup 中​​​生​​​成​​​的​​​数​​​据​​​包​​​。​​​</li>
+<li>net_prio &#8212; 这个子系统用来设计网络流量的优先级</li>
+<li>hugetlb &#8212; 这个子系统主要针对于HugeTLB系统进行限制，这是一个大页文件系统。</li>
+<p>​​​</ul>
+<p>注意，你可能在Ubuntu 14.04下看不到net_cls和net_prio这两个cgroup，你需要手动mount一下：</p>
+<pre class="brush: bash; title: ; notranslate">$ sudo modprobe cls_cgroup
+$ sudo mkdir /sys/fs/cgroup/net_cls
+$ sudo mount -t cgroup -o net_cls none /sys/fs/cgroup/net_cls
+
+$ sudo modprobe netprio_cgroup
+$ sudo mkdir /sys/fs/cgroup/net_prio
+$ sudo mount -t cgroup -o net_prio none /sys/fs/cgroup/net_prio</pre>
+<p>关于各个子系统的参数细节，以及更多的Linux CGroup的文档，你可以看看下面的文档：</p>
+<ul>
+<li><a href="https://www.kernel.org/doc/Documentation/cgroups/" target="_blank">Linux Kernel的官方文档</a></li>
+<li><a href="https://access.redhat.com/documentation/zh-CN/Red_Hat_Enterprise_Linux/6/html-single/Resource_Management_Guide/index.html#ch-Subsystems_and_Tunable_Parameters" target="_blank">Redhat的官方文档</a></li>
+</ul>
+<h4>CGroup的术语</h4>
+<p>CGroup有下述术语：</p>
+<ul>
+<li><strong>任务（Tasks）</strong>：就是系统的一个进程。</li>
+<li><strong>控制组（Control Group）</strong>：一组按照某种标准划分的进程，比如官方文档中的Professor和Student，或是WWW和System之类的，其表示了某进程组。Cgroups中的资源控制都是以控制组为单位实现。一个进程可以加入到某个控制组。而资源的限制是定义在这个组上，就像上面示例中我用的haoel一样。简单点说，cgroup的呈现就是一个目录带一系列的可配置文件。</li>
+<li><strong>层级（Hierarchy）</strong>：控制组可以组织成hierarchical的形式，既一颗控制组的树（目录结构）。控制组树上的子节点继承父结点的属性。简单点说，hierarchy就是在一个或多个子系统上的cgroups目录树。</li>
+<li><strong>子系统（Subsystem）</strong>：一个子系统就是一个资源控制器，比如CPU子系统就是控制CPU时间分配的一个控制器。子系统必须附加到一个层级上才能起作用，一个子系统附加到某个层级以后，这个层级上的所有控制族群都受到这个子系统的控制。Cgroup的子系统可以有很多，也在不断增加中。</li>
+</ul>
+<h4>下一代的CGroup</h4>
+<p>上面，我们可以看到，CGroup的一些常用方法和相关的术语。一般来说，这样的设计在一般情况下还是没什么问题的，除了操作上的用户体验不是很好，但基本满足我们的一般需求了。</p>
+<p>不过，对此，有个叫Tejun Heo的同学非常不爽，他在Linux社区里<a href="https://lwn.net/Articles/484254/" target="_blank">对cgroup吐了一把槽</a>，还引发了内核组的各种讨论。</p>
+<p>对于Tejun Heo同学来说，cgroup设计的相当糟糕。他给出了些例子，大意就是说，如果有多种层级关系，也就是说有多种对进程的分类方式，比如，我们可以按用户来分，分成Professor和Student，同时，也有按应用类似来分的，比如WWW和NFS等。那么，当一个进程即是Professor的，也是WWW的，那么就会出现多层级正交的情况，从而出现对进程上管理的混乱。另外，一个case是，如果有一个层级A绑定cpu，而层级B绑定memory，还有一个层级C绑定cputset，而有一些进程有的需要AB，有的需要AC，有的需要ABC，管理起来就相当不易。 </p>
+<p>层级操作起来比较麻烦，而且如果层级变多，更不易于操作和管理，虽然那种方式很好实现，但是在使用上有很多的复杂度。你可以想像一个图书馆的图书分类问题，你可以有各种不同的分类，分类和图书就是一种多对多的关系。</p>
+<p>所以，在Kernel 3.16后，引入了<a href="http://lwn.net/Articles/601840/" target="_blank">unified hierarchy</a>的新的设计，这个东西引入了一个叫<strong>__DEVEL__sane_behavior</strong>的特性（这个名字很明显意味目前还在开发试验阶段），它可以把所有子系统都挂载到根层级下，只有叶子节点可以存在tasks，非叶子节点只进行资源控制。</p>
+<p>我们mount一下看看：</p>
+<pre class="brush: bash; title: ; notranslate">$ sudo mount -t cgroup -o __DEVEL__sane_behavior cgroup ./cgroup
+
+$ ls ./cgroup
+cgroup.controllers  cgroup.procs  cgroup.sane_behavior  cgroup.subtree_control 
+
+$ cat ./cgroup/cgroup.controllers
+cpuset cpu cpuacct memory devices freezer net_cls blkio perf_event net_prio hugetlb</pre>
+<p>我们可以看到有四个文件，然后，你在这里mkdir一个子目录，里面也会有这四个文件。<strong>上级的cgroup.subtree_control控制下级的cgroup.controllers。</strong></p>
+<p>举个例子：假设我们有以下的目录结构，b代表blkio，m代码memory，其中，A是root，包括所有的子系统（）。</p>
+<pre class="brush: bash; title: ; notranslate">
+# A(b,m) - B(b,m) - C (b)
+#               \ - D (b) - E
+
+# 下面的命令中， +表示enable， -表示disable
+
+# 在B上的enable blkio
+# echo +blkio &gt; A/cgroup.subtree_control
+
+# 在C和D上enable blkio 
+# echo +blkio &gt; A/B/cgroup.subtree_control
+
+# 在B上enable memory  
+# echo +memory &gt; A/cgroup.subtree_control</pre>
+<p>在上述的结构中，</p>
+<ul>
+<li>cgroup只有上线控制下级，无法传递到下下级。所以，C和D中没有memory的限制，E中没有blkio和memory的限制。而本层的cgroup.controllers文件是个只读的，其中的内容就看上级的subtree_control里有什么了。</li>
+<li><strong>任何被配置过subtree_control的目录都不能绑定进程，根结点除外</strong>。所以，A,C,D,E可以绑上进程，但是B不行。</li>
+</ul>
+<p>我们可以看到，<strong>这种方式干净的区分开了两个事，一个是进程的分组，一个是对分组的资源控制</strong>（以前这两个事完全混在一起），在目录继承上增加了些限制，这样可以避免一些模棱两可的情况。</p>
+<p>当然，这个事还在演化中，cgroup的这些问题这个事目前由cgroup的吐槽人Tejun Heo和华为的Li Zefan同学负责解决中。总之，这是一个系统管理上的问题，而且改变会影响很多东西，但一旦方案确定，老的cgroup方式将一去不复返。</p>
+<h4>参考</h4>
+<ul>
+<li><a href="https://www.kernel.org/doc/Documentation/cgroups/" target="_blank">Linux Kernel Cgroup Documents</a></li>
+<li><a href="https://access.redhat.com/documentation/zh-CN/Red_Hat_Enterprise_Linux/6/html-single/Resource_Management_Guide/index.html" target="_blank">Reahat Resource Management Guide</a></li>
+<li><a href="https://lwn.net/Articles/484251/" target="_blank">Fixing control groups</a></li>
+<li><a href="http://lwn.net/Articles/601840/" target="_blank">The unified control group hierarchy in 3.16</a></li>
+<li><a href="http://events.linuxfoundation.org/sites/events/files/slides/2014-KLF.pdf" target="_blank">Cgroup v2(PDF)</a></li>
+</ul>
+<p>（全文完）</p>
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" id="wp_rp_first"><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-17010" data-post-type="none" ><small class="wp_rp_publish_date">2015年04月16日</small> <a href="http://coolshell.cn/articles/17010.html" class="wp_rp_title">Docker基础技术：Linux Namespace（上）</a></li><li data-position="1" data-poid="in-17029" data-post-type="none" ><small class="wp_rp_publish_date">2015年04月16日</small> <a href="http://coolshell.cn/articles/17029.html" class="wp_rp_title">Docker基础技术：Linux Namespace（下）</a></li><li data-position="2" data-poid="in-12103" data-post-type="none" ><small class="wp_rp_publish_date">2014年11月21日</small> <a href="http://coolshell.cn/articles/12103.html" class="wp_rp_title">vfork 挂掉的一个问题</a></li><li data-position="3" data-poid="in-11847" data-post-type="none" ><small class="wp_rp_publish_date">2014年08月06日</small> <a href="http://coolshell.cn/articles/11847.html" class="wp_rp_title">谜题的答案和活动的心得体会</a></li><li data-position="4" data-poid="in-9917" data-post-type="none" ><small class="wp_rp_publish_date">2013年07月08日</small> <a href="http://coolshell.cn/articles/9917.html" class="wp_rp_title">Alan Cox：大教堂、市集与市议会</a></li><li data-position="5" data-poid="in-9859" data-post-type="none" ><small class="wp_rp_publish_date">2013年06月30日</small> <a href="http://coolshell.cn/articles/9859.html" class="wp_rp_title">Alan Cox：单向链表中prev指针的妙用</a></li><li data-position="6" data-poid="in-9104" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月20日</small> <a href="http://coolshell.cn/articles/9104.html" class="wp_rp_title">sed 简明教程</a></li><li data-position="7" data-poid="in-9070" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月17日</small> <a href="http://coolshell.cn/articles/9070.html" class="wp_rp_title">AWK 简明教程</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/17049.html/feed</wfw:commentRss>
+		<slash:comments>29</slash:comments>
+		</item>
+		<item>
+		<title>Docker基础技术：Linux Namespace（上）</title>
+		<link>http://coolshell.cn/articles/17010.html</link>
+		<comments>http://coolshell.cn/articles/17010.html#comments</comments>
+		<pubDate>Thu, 16 Apr 2015 02:20:08 +0000</pubDate>
+		<dc:creator><![CDATA[陈皓]]></dc:creator>
+				<category><![CDATA[Unix/Linux]]></category>
+		<category><![CDATA[Docker]]></category>
+		<category><![CDATA[Linux]]></category>
+		<category><![CDATA[Mount]]></category>
+		<category><![CDATA[Namespace]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=17010</guid>
+		<description><![CDATA[时下最热的技术莫过于Docker了，很多人都觉得Docker是个新技术，其实不然，Docker除了其编程语言用 [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p><img src="http://coolshell.cn//wp-content/uploads/2015/04/isolation.jpg" alt="isolation" width="359" height="237" class="alignright size-full wp-image-17085" />时下最热的技术莫过于Docker了，很多人都觉得Docker是个新技术，其实不然，Docker除了其编程语言用go比较新外，其实它还真不是个新东西，也就是个新瓶装旧酒的东西，所谓的The New &#8220;Old Stuff&#8221;。Docker和Docker衍生的东西用到了很多很酷的技术，我会用几篇 文章来把这些技术给大家做个介绍，希望通过这些文章大家可以自己打造一个山寨版的docker。</p>
+<p>当然，文章的风格一定会尊重时下的“流行”——<strong>我们再也没有整块整块的时间去看书去专研，而我们只有看微博微信那样的碎片时间</strong>（那怕我们有整块的时间，也被那些在手机上的APP碎片化了）。所以，这些文章的风格必然坚持“马桶风格”（希望简单到占用你拉一泡屎就时间，而且你还不用动脑子，并能学到些东西）</p>
+<p>废话少说，我们开始。先从Linux Namespace开始。</p>
+<h4> 简介</h4>
+<p>Linux Namespace是Linux提供的一种内核级别环境隔离的方法。不知道你是否还记得很早以前的Unix有一个叫chroot的系统调用（通过修改根目录把用户jail到一个特定目录下），chroot提供了一种简单的隔离模式：chroot内部的文件系统无法访问外部的内容。Linux Namespace在此基础上，提供了对UTS、IPC、mount、PID、network、User等的隔离机制。</p>
+<p><span id="more-17010"></span></p>
+<p>举个例子，我们都知道，Linux下的超级父亲进程的PID是1，所以，同chroot一样，如果我们可以把用户的进程空间jail到某个进程分支下，并像chroot那样让其下面的进程 看到的那个超级父进程的PID为1，于是就可以达到资源隔离的效果了（不同的PID namespace中的进程无法看到彼此）</p>
+<p><b>Linux Namespace 有如下种类</b>，官方文档在这里《<a href="http://lwn.net/Articles/531114/" target="_blank">Namespace in Operation</a>》</p>
+<table width=100%>
+<thead>
+<tr>
+<th>分类</th>
+<th>系统调用参数</th>
+<th>相关内核版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><b>Mount namespaces</b></td>
+<td>CLONE_NEWNS</td>
+<td><a href="http://lwn.net/2001/0301/a/namespaces.php3" target="_blank">Linux 2.4.19</a></td>
+</tr>
+<tr>
+<td><b>UTS namespaces</b></td>
+<td>CLONE_NEWUTS</td>
+<td><a href="http://lwn.net/Articles/179345/" target="_blank">Linux 2.6.19</a></td>
+</tr>
+<tr>
+<td><b>IPC namespaces</a></b></td>
+<td>CLONE_NEWIPC</td>
+<td><a href="http://lwn.net/Articles/187274/" target="_blank">Linux 2.6.19</a></td>
+</tr>
+<tr>
+<td><b>PID namespaces</a></b></td>
+<td>CLONE_NEWPID</td>
+<td><a href="http://lwn.net/Articles/259217/" target="_blank">Linux 2.6.24</a></td>
+</tr>
+<tr>
+<td><b>Network namespaces</b></td>
+<td>CLONE_NEWNET</td>
+<td><a href="http://lwn.net/Articles/219794/" target="_blank">始于Linux 2.6.24 完成于 Linux 2.6.29</a></td>
+</tr>
+<tr>
+<td><b>User namespaces</b></td>
+<td>CLONE_NEWUSER</td>
+<td><a href="http://lwn.net/Articles/528078/" target="_blank">始于 Linux 2.6.23 完成于 Linux 3.8)</a></td>
+</tr>
+</tbody>
+</table>
+<p>主要是三个系统调用</p>
+<ul>
+<li><b>clone</b><b>() </b>- 实现线程的系统调用，用来创建一个新的进程，并可以通过设计上述参数达到隔离。</li>
+<li><b>unshare</b><b>() </b>- 使某进程脱离某个namespace</li>
+<li><b>setns</b><b>() </b>- 把某进程加入到某个namespace</li>
+</ul>
+<p>unshare() 和 setns() 都比较简单，大家可以自己man，我这里不说了。</p>
+<p>下面还是让我们来看一些示例（以下的测试程序最好在Linux 内核为3.8以上的版本中运行，我用的是ubuntu 14.04）。</p>
+<h4>clone()系统调用</h4>
+<p>首先，我们来看一下一个最简单的clone()系统调用的示例，（后面，我们的程序都会基于这个程序做修改）：</p>
+<pre class="brush: cpp; title: ; notranslate">#define _GNU_SOURCE
+#include &lt;sys/types.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;sched.h&gt;
+#include &lt;signal.h&gt;
+#include &lt;unistd.h&gt;
+
+/* 定义一个给 clone 用的栈，栈大小1M */
+#define STACK_SIZE (1024 * 1024)
+static char container_stack[STACK_SIZE];
+
+char* const container_args[] = {
+    &quot;/bin/bash&quot;,
+    NULL
+};
+
+int container_main(void* arg)
+{
+    printf(&quot;Container - inside the container!\n&quot;);
+    /* 直接执行一个shell，以便我们观察这个进程空间里的资源是否被隔离了 */
+    execv(container_args[0], container_args); 
+    printf(&quot;Something's wrong!\n&quot;);
+    return 1;
+}
+
+int main()
+{
+    printf(&quot;Parent - start a container!\n&quot;);
+    /* 调用clone函数，其中传出一个函数，还有一个栈空间的（为什么传尾指针，因为栈是反着的） */
+    int container_pid = clone(container_main, container_stack+STACK_SIZE, SIGCHLD, NULL);
+    /* 等待子进程结束 */
+    waitpid(container_pid, NULL, 0);
+    printf(&quot;Parent - container stopped!\n&quot;);
+    return 0;
+}</pre>
+<p>从上面的程序，我们可以看到，这和pthread基本上是一样的玩法。但是，对于上面的程序，父子进程的进程空间是没有什么差别的，父进程能访问到的子进程也能。</p>
+<p>下面， 让我们来看几个例子看看，Linux的Namespace是什么样的。</p>
+<h4>UTS Namespace</h4>
+<p>下面的代码，我略去了上面那些头文件和数据结构的定义，只有最重要的部分。</p>
+<pre class="brush: cpp; highlight: [4,14]; title: ; notranslate">int container_main(void* arg)
+{
+    printf(&quot;Container - inside the container!\n&quot;);
+    sethostname(&quot;container&quot;,10); /* 设置hostname */
+    execv(container_args[0], container_args);
+    printf(&quot;Something's wrong!\n&quot;);
+    return 1;
+}
+
+int main()
+{
+    printf(&quot;Parent - start a container!\n&quot;);
+    int container_pid = clone(container_main, container_stack+STACK_SIZE, 
+            CLONE_NEWUTS | SIGCHLD, NULL); /*启用CLONE_NEWUTS Namespace隔离 */
+    waitpid(container_pid, NULL, 0);
+    printf(&quot;Parent - container stopped!\n&quot;);
+    return 0;
+}</pre>
+<p>运行上面的程序你会发现（需要root权限），子进程的hostname变成了 container。</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ sudo ./uts
+Parent - start a container!
+Container - inside the container!
+root@container:~# hostname
+container
+root@container:~# uname -n
+container</pre>
+<h4>IPC Namespace</h4>
+<p>IPC全称 Inter-Process Communication，是Unix/Linux下进程间通信的一种方式，IPC有共享内存、信号量、消息队列等方法。所以，为了隔离，我们也需要把IPC给隔离开来，这样，只有在同一个Namespace下的进程才能相互通信。如果你熟悉IPC的原理的话，你会知道，IPC需要有一个全局的ID，即然是全局的，那么就意味着我们的Namespace需要对这个ID隔离，不能让别的Namespace的进程看到。</p>
+<p>要启动IPC隔离，我们只需要在调用clone时加上CLONE_NEWIPC参数就可以了。</p>
+<pre class="brush: cpp; title: ; notranslate">int container_pid = clone(container_main, container_stack+STACK_SIZE, 
+            CLONE_NEWUTS | CLONE_NEWIPC | SIGCHLD, NULL); </pre>
+<p>首先，我们先创建一个IPC的Queue（如下所示，全局的Queue ID是0）</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ ipcmk -Q 
+Message queue id: 0
+
+hchen@ubuntu:~$ ipcs -q
+------ Message Queues --------
+key        msqid      owner      perms      used-bytes   messages    
+0xd0d56eb2 0          hchen      644        0            0    </pre>
+<p>如果我们运行没有CLONE_NEWIPC的程序，我们会看到，在子进程中还是能看到这个全启的IPC Queue。</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ sudo ./uts 
+Parent - start a container!
+Container - inside the container!
+
+root@container:~# ipcs -q
+
+------ Message Queues --------
+key        msqid      owner      perms      used-bytes   messages    
+0xd0d56eb2 0          hchen      644        0            0    </pre>
+<p>但是，如果我们运行加上了CLONE_NEWIPC的程序，我们就会下面的结果：</p>
+<pre class="brush: cpp; title: ; notranslate">root@ubuntu:~$ sudo./ipc
+Parent - start a container!
+Container - inside the container!
+
+root@container:~/linux_namespace# ipcs -q
+
+------ Message Queues --------
+key        msqid      owner      perms      used-bytes   messages    </pre>
+<p>我们可以看到IPC已经被隔离了。</p>
+<h4>PID Namespace</h4>
+<p>我们继续修改上面的程序：</p>
+<pre class="brush: cpp; highlight: [4,16]; title: ; notranslate">int container_main(void* arg)
+{
+    /* 查看子进程的PID，我们可以看到其输出子进程的 pid 为 1 */
+    printf(&quot;Container [%5d] - inside the container!\n&quot;, getpid());
+    sethostname(&quot;container&quot;,10);
+    execv(container_args[0], container_args);
+    printf(&quot;Something's wrong!\n&quot;);
+    return 1;
+}
+
+int main()
+{
+    printf(&quot;Parent [%5d] - start a container!\n&quot;, getpid());
+    /*启用PID namespace - CLONE_NEWPID*/
+    int container_pid = clone(container_main, container_stack+STACK_SIZE, 
+            CLONE_NEWUTS | CLONE_NEWPID | SIGCHLD, NULL); 
+    waitpid(container_pid, NULL, 0);
+    printf(&quot;Parent - container stopped!\n&quot;);
+    return 0;
+}</pre>
+<p>运行结果如下（我们可以看到，子进程的pid是1了）：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ sudo ./pid
+Parent [ 3474] - start a container!
+Container [    1] - inside the container!
+root@container:~# echo $$
+1</pre>
+<p>你可能会问，PID为1有个毛用啊？我们知道，在传统的UNIX系统中，PID为1的进程是init，地位非常特殊。他作为所有进程的父进程，有很多特权（比如：屏蔽信号等），另外，其还会为检查所有进程的状态，我们知道，如果某个子进程脱离了父进程（父进程没有wait它），那么init就会负责回收资源并结束这个子进程。所以，要做到进程空间的隔离，首先要创建出PID为1的进程，最好就像chroot那样，把子进程的PID在容器内变成1。</p>
+<p><strong>但是，我们会发现，在子进程的shell里输入ps,top等命令，我们还是可以看得到所有进程</strong>。说明并没有完全隔离。这是因为，像ps, top这些命令会去读/proc文件系统，所以，因为/proc文件系统在父进程和子进程都是一样的，所以这些命令显示的东西都是一样的。</p>
+<p>所以，我们还需要对文件系统进行隔离。</p>
+<h4>Mount Namespace</h4>
+<p>下面的例程中，我们在启用了mount namespace并在子进程中重新mount了/proc文件系统。</p>
+<pre class="brush: cpp; highlight: [6,17]; title: ; notranslate">int container_main(void* arg)
+{
+    printf(&quot;Container [%5d] - inside the container!\n&quot;, getpid());
+    sethostname(&quot;container&quot;,10);
+    /* 重新mount proc文件系统到 /proc下 */
+    system(&quot;mount -t proc proc /proc&quot;);
+    execv(container_args[0], container_args);
+    printf(&quot;Something's wrong!\n&quot;);
+    return 1;
+}
+
+int main()
+{
+    printf(&quot;Parent [%5d] - start a container!\n&quot;, getpid());
+    /* 启用Mount Namespace - 增加CLONE_NEWNS参数 */
+    int container_pid = clone(container_main, container_stack+STACK_SIZE, 
+            CLONE_NEWUTS | CLONE_NEWPID | CLONE_NEWNS | SIGCHLD, NULL);
+    waitpid(container_pid, NULL, 0);
+    printf(&quot;Parent - container stopped!\n&quot;);
+    return 0;
+}</pre>
+<p>运行结果如下：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ sudo ./pid.mnt
+Parent [ 3502] - start a container!
+Container [    1] - inside the container!
+root@container:~# ps -elf 
+F S UID        PID  PPID  C PRI  NI ADDR SZ WCHAN  STIME TTY          TIME CMD
+4 S root         1     0  0  80   0 -  6917 wait   19:55 pts/2    00:00:00 /bin/bash
+0 R root        14     1  0  80   0 -  5671 -      19:56 pts/2    00:00:00 ps -elf
+</pre>
+<p>上面，我们可以看到只有两个进程 ，而且pid=1的进程是我们的/bin/bash。我们还可以看到/proc目录下也干净了很多：</p>
+<pre class="brush: bash; title: ; notranslate">root@container:~# ls /proc
+1          dma          key-users   net            sysvipc
+16         driver       kmsg        pagetypeinfo   timer_list
+acpi       execdomains  kpagecount  partitions     timer_stats
+asound     fb           kpageflags  sched_debug    tty
+buddyinfo  filesystems  loadavg     schedstat      uptime
+bus        fs           locks       scsi           version
+cgroups    interrupts   mdstat      self           version_signature
+cmdline    iomem        meminfo     slabinfo       vmallocinfo
+consoles   ioports      misc        softirqs       vmstat
+cpuinfo    irq          modules     stat           zoneinfo
+crypto     kallsyms     mounts      swaps
+devices    kcore        mpt         sys
+diskstats  keys         mtrr        sysrq-trigger</pre>
+<p>下图，我们也可以看到在子进程中的top命令只看得到两个进程了。</p>
+<p><img src="http://coolshell.cn//wp-content/uploads/2015/04/mount.namespace.jpg" alt="" width="570" height="300" class="aligncenter size-full wp-image-17020" /></p>
+<p>这里，多说一下。在通过CLONE_NEWNS创建mount namespace后，父进程会把自己的文件结构复制给子进程中。而子进程中新的namespace中的所有mount操作都只影响自身的文件系统，而不对外界产生任何影响。这样可以做到比较严格地隔离。</p>
+<p><!--另外，如果你熟悉mount命令，你会知道，mount命令有以下这些参数：</p>
+<ul>
+<ol>--make-shared ： 共享方式的mount，主要是为了文件的共享和镜像。</ol>
+<ol>--make-slave ： 这种mount方式更大的意义是为了“只读”的场景，也就是从动式的mount。</ol>
+<ol>--make-private：这种mount方式主要就是为了隔离。如proc文件系统。</ol>
+<ol>--make-unbindable：标记为不可绑定。</ol>
+</ul>
+<p>--></p>
+<p>你可能会问，我们是不是还有别的一些文件系统也需要这样mount? 是的。</p>
+<h4>Docker的 Mount Namespace</h4>
+<p>下面我将向演示一个“山寨镜像”，其模仿了Docker的Mount Namespace。</p>
+<p>首先，我们需要一个rootfs，也就是我们需要把我们要做的镜像中的那些命令什么的copy到一个rootfs的目录下，我们模仿Linux构建如下的目录：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~/rootfs$ ls
+bin  dev  etc  home  lib  lib64  mnt  opt  proc  root  run  sbin  sys  tmp  usr  var</pre>
+<p>然后，我们把一些我们需要的命令copy到 rootfs/bin目录中（sh命令必需要copy进去，不然我们无法 chroot ）</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~/rootfs$ ls ./bin ./usr/bin
+ 
+./bin:
+bash   chown  gzip      less  mount       netstat  rm     tabs  tee      top       tty
+cat    cp     hostname  ln    mountpoint  ping     sed    tac   test     touch     umount
+chgrp  echo   ip        ls    mv          ps       sh     tail  timeout  tr        uname
+chmod  grep   kill      more  nc          pwd      sleep  tar   toe      truncate  which
+
+./usr/bin:
+awk  env  groups  head  id  mesg  sort  strace  tail  top  uniq  vi  wc  xargs</pre>
+<p>注：你可以使用ldd命令把这些命令相关的那些so文件copy到对应的目录：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~/rootfs/bin$ ldd bash
+	linux-vdso.so.1 =&gt;  (0x00007fffd33fc000)
+	libtinfo.so.5 =&gt; /lib/x86_64-linux-gnu/libtinfo.so.5 (0x00007f4bd42c2000)
+	libdl.so.2 =&gt; /lib/x86_64-linux-gnu/libdl.so.2 (0x00007f4bd40be000)
+	libc.so.6 =&gt; /lib/x86_64-linux-gnu/libc.so.6 (0x00007f4bd3cf8000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f4bd4504000)</pre>
+<p>下面是我的rootfs中的一些so文件：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~/rootfs$ ls ./lib64 ./lib/x86_64-linux-gnu/
+
+./lib64:
+ld-linux-x86-64.so.2
+
+./lib/x86_64-linux-gnu/:
+libacl.so.1      libmemusage.so         libnss_files-2.19.so    libpython3.4m.so.1
+libacl.so.1.1.0  libmount.so.1          libnss_files.so.2       libpython3.4m.so.1.0
+libattr.so.1     libmount.so.1.1.0      libnss_hesiod-2.19.so   libresolv-2.19.so
+libblkid.so.1    libm.so.6              libnss_hesiod.so.2      libresolv.so.2
+libc-2.19.so     libncurses.so.5        libnss_nis-2.19.so      libselinux.so.1
+libcap.a         libncurses.so.5.9      libnss_nisplus-2.19.so  libtinfo.so.5
+libcap.so        libncursesw.so.5       libnss_nisplus.so.2     libtinfo.so.5.9
+libcap.so.2      libncursesw.so.5.9     libnss_nis.so.2         libutil-2.19.so
+libcap.so.2.24   libnsl-2.19.so         libpcre.so.3            libutil.so.1
+libc.so.6        libnsl.so.1            libprocps.so.3          libuuid.so.1
+libdl-2.19.so    libnss_compat-2.19.so  libpthread-2.19.so      libz.so.1
+libdl.so.2       libnss_compat.so.2     libpthread.so.0
+libgpm.so.2      libnss_dns-2.19.so     libpython2.7.so.1
+libm-2.19.so     libnss_dns.so.2        libpython2.7.so.1.0</pre>
+<p>包括这些命令依赖的一些配置文件：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~/rootfs$ ls ./etc
+bash.bashrc  group  hostname  hosts  ld.so.cache  nsswitch.conf  passwd  profile  
+resolv.conf  shadow</pre>
+<p>你现在会说，我靠，有些配置我希望是在容器起动时给他设置的，而不是hard code在镜像中的。比如：/etc/hosts，/etc/hostname，还有DNS的/etc/resolv.conf文件。好的。那我们在rootfs外面，我们再创建一个conf目录，把这些文件放到这个目录中。</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ ls ./conf
+hostname     hosts     resolv.conf</pre>
+<p>这样，我们的父进程就可以动态地设置容器需要的这些文件的配置， 然后再把他们mount进容器，这样，容器的镜像中的配置就比较灵活了。</p>
+<p>好了，终于到了我们的程序。</p>
+<pre class="brush: cpp; title: ; notranslate">#define _GNU_SOURCE
+#include &lt;sys/types.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;sys/mount.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;sched.h&gt;
+#include &lt;signal.h&gt;
+#include &lt;unistd.h&gt;
+
+#define STACK_SIZE (1024 * 1024)
+
+static char container_stack[STACK_SIZE];
+char* const container_args[] = {
+    &quot;/bin/bash&quot;,
+    &quot;-l&quot;,
+    NULL
+};
+
+int container_main(void* arg)
+{
+    printf(&quot;Container [%5d] - inside the container!\n&quot;, getpid());
+
+    //set hostname
+    sethostname(&quot;container&quot;,10);
+
+    //remount &quot;/proc&quot; to make sure the &quot;top&quot; and &quot;ps&quot; show container's information
+    if (mount(&quot;proc&quot;, &quot;rootfs/proc&quot;, &quot;proc&quot;, 0, NULL) !=0 ) {
+        perror(&quot;proc&quot;);
+    }
+    if (mount(&quot;sysfs&quot;, &quot;rootfs/sys&quot;, &quot;sysfs&quot;, 0, NULL)!=0) {
+        perror(&quot;sys&quot;);
+    }
+    if (mount(&quot;none&quot;, &quot;rootfs/tmp&quot;, &quot;tmpfs&quot;, 0, NULL)!=0) {
+        perror(&quot;tmp&quot;);
+    }
+    if (mount(&quot;udev&quot;, &quot;rootfs/dev&quot;, &quot;devtmpfs&quot;, 0, NULL)!=0) {
+        perror(&quot;dev&quot;);
+    }
+    if (mount(&quot;devpts&quot;, &quot;rootfs/dev/pts&quot;, &quot;devpts&quot;, 0, NULL)!=0) {
+        perror(&quot;dev/pts&quot;);
+    }
+    if (mount(&quot;shm&quot;, &quot;rootfs/dev/shm&quot;, &quot;tmpfs&quot;, 0, NULL)!=0) {
+        perror(&quot;dev/shm&quot;);
+    }
+    if (mount(&quot;tmpfs&quot;, &quot;rootfs/run&quot;, &quot;tmpfs&quot;, 0, NULL)!=0) {
+        perror(&quot;run&quot;);
+    }
+    /* 
+     * 模仿Docker的从外向容器里mount相关的配置文件 
+     * 你可以查看：/var/lib/docker/containers/&lt;container_id&gt;/目录，
+     * 你会看到docker的这些文件的。
+     */
+    if (mount(&quot;conf/hosts&quot;, &quot;rootfs/etc/hosts&quot;, &quot;none&quot;, MS_BIND, NULL)!=0 ||
+          mount(&quot;conf/hostname&quot;, &quot;rootfs/etc/hostname&quot;, &quot;none&quot;, MS_BIND, NULL)!=0 ||
+          mount(&quot;conf/resolv.conf&quot;, &quot;rootfs/etc/resolv.conf&quot;, &quot;none&quot;, MS_BIND, NULL)!=0 ) {
+        perror(&quot;conf&quot;);
+    }
+    /* 模仿docker run命令中的 -v, --volume=[] 参数干的事 */
+    if (mount(&quot;/tmp/t1&quot;, &quot;rootfs/mnt&quot;, &quot;none&quot;, MS_BIND, NULL)!=0) {
+        perror(&quot;mnt&quot;);
+    }
+
+    /* chroot 隔离目录 */
+    if ( chdir(&quot;./rootfs&quot;) != 0 || chroot(&quot;./&quot;) != 0 ){
+        perror(&quot;chdir/chroot&quot;);
+    }
+
+    execv(container_args[0], container_args);
+    perror(&quot;exec&quot;);
+    printf(&quot;Something's wrong!\n&quot;);
+    return 1;
+}
+
+int main()
+{
+    printf(&quot;Parent [%5d] - start a container!\n&quot;, getpid());
+    int container_pid = clone(container_main, container_stack+STACK_SIZE, 
+            CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWPID | CLONE_NEWNS | SIGCHLD, NULL);
+    waitpid(container_pid, NULL, 0);
+    printf(&quot;Parent - container stopped!\n&quot;);
+    return 0;
+}</pre>
+<p>sudo运行上面的程序，你会看到下面的挂载信息以及一个所谓的“镜像”：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ sudo ./mount 
+Parent [ 4517] - start a container!
+Container [    1] - inside the container!
+root@container:/# mount
+proc on /proc type proc (rw,relatime)
+sysfs on /sys type sysfs (rw,relatime)
+none on /tmp type tmpfs (rw,relatime)
+udev on /dev type devtmpfs (rw,relatime,size=493976k,nr_inodes=123494,mode=755)
+devpts on /dev/pts type devpts (rw,relatime,mode=600,ptmxmode=000)
+tmpfs on /run type tmpfs (rw,relatime)
+/dev/disk/by-uuid/18086e3b-d805-4515-9e91-7efb2fe5c0e2 on /etc/hosts type ext4 (rw,relatime,errors=remount-ro,data=ordered)
+/dev/disk/by-uuid/18086e3b-d805-4515-9e91-7efb2fe5c0e2 on /etc/hostname type ext4 (rw,relatime,errors=remount-ro,data=ordered)
+/dev/disk/by-uuid/18086e3b-d805-4515-9e91-7efb2fe5c0e2 on /etc/resolv.conf type ext4 (rw,relatime,errors=remount-ro,data=ordered)
+
+root@container:/# ls /bin /usr/bin
+/bin:
+bash   chmod  echo  hostname  less  more	mv	 ping  rm   sleep  tail  test	  top	 truncate  uname
+cat    chown  grep  ip	      ln    mount	nc	 ps    sed  tabs   tar	 timeout  touch  tty	   which
+chgrp  cp     gzip  kill      ls    mountpoint	netstat  pwd   sh   tac    tee	 toe	  tr	 umount
+
+/usr/bin:
+awk  env  groups  head	id  mesg  sort	strace	tail  top  uniq  vi  wc  xargs</pre>
+<p>关于如何做一个chroot的目录，这里有个工具叫<a href="https://wiki.ubuntu.com/DebootstrapChroot" target="_blank">DebootstrapChroot</a>，你可以顺着链接去看看（英文的哦）</p>
+<p>接下来的事情，你可以自己玩了，我相信你的想像力 。：）</p>
+<p>在下一篇，我将向你介绍User Namespace、Network Namespace以及Namespace的其它东西。</p>
+<p align=center><strong> <a href="http://coolshell.cn/articles/17029.html" title="Docker基础技术：Linux Namespace（下）" target="_blank"> <<<< Docker基础技术：Linux Namespace（下）>>>> </a></strong></p>
+<p>（上篇完，<a href="http://coolshell.cn/articles/17029.html" title="Docker基础技术：Linux Namespace（下）" target="_blank">请参看下篇</a>）
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-17029" data-post-type="none" ><small class="wp_rp_publish_date">2015年04月16日</small> <a href="http://coolshell.cn/articles/17029.html" class="wp_rp_title">Docker基础技术：Linux Namespace（下）</a></li><li data-position="1" data-poid="in-17049" data-post-type="none" ><small class="wp_rp_publish_date">2015年04月17日</small> <a href="http://coolshell.cn/articles/17049.html" class="wp_rp_title">Docker基础技术：Linux CGroup</a></li><li data-position="2" data-poid="in-12103" data-post-type="none" ><small class="wp_rp_publish_date">2014年11月21日</small> <a href="http://coolshell.cn/articles/12103.html" class="wp_rp_title">vfork 挂掉的一个问题</a></li><li data-position="3" data-poid="in-11847" data-post-type="none" ><small class="wp_rp_publish_date">2014年08月06日</small> <a href="http://coolshell.cn/articles/11847.html" class="wp_rp_title">谜题的答案和活动的心得体会</a></li><li data-position="4" data-poid="in-9917" data-post-type="none" ><small class="wp_rp_publish_date">2013年07月08日</small> <a href="http://coolshell.cn/articles/9917.html" class="wp_rp_title">Alan Cox：大教堂、市集与市议会</a></li><li data-position="5" data-poid="in-9859" data-post-type="none" ><small class="wp_rp_publish_date">2013年06月30日</small> <a href="http://coolshell.cn/articles/9859.html" class="wp_rp_title">Alan Cox：单向链表中prev指针的妙用</a></li><li data-position="6" data-poid="in-9104" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月20日</small> <a href="http://coolshell.cn/articles/9104.html" class="wp_rp_title">sed 简明教程</a></li><li data-position="7" data-poid="in-9070" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月17日</small> <a href="http://coolshell.cn/articles/9070.html" class="wp_rp_title">AWK 简明教程</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/17010.html/feed</wfw:commentRss>
+		<slash:comments>27</slash:comments>
+		</item>
+		<item>
+		<title>Docker基础技术：Linux Namespace（下）</title>
+		<link>http://coolshell.cn/articles/17029.html</link>
+		<comments>http://coolshell.cn/articles/17029.html#comments</comments>
+		<pubDate>Thu, 16 Apr 2015 02:19:23 +0000</pubDate>
+		<dc:creator><![CDATA[陈皓]]></dc:creator>
+				<category><![CDATA[Unix/Linux]]></category>
+		<category><![CDATA[操作系统]]></category>
+		<category><![CDATA[Docker]]></category>
+		<category><![CDATA[Linux]]></category>
+		<category><![CDATA[Namespace]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=17029</guid>
+		<description><![CDATA[在 Docker基础技术：Linux Namespace（上篇）中我们了解了，UTD、IPC、PID、Moun [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p><img src="http://coolshell.cn//wp-content/uploads/2015/04/jail_cell.jpg" alt="jail_cell" width="350" height="252" class="alignright size-full wp-image-17084" />在 <strong><a title="Docker基础技术：Linux Namespace（上）" href="http://coolshell.cn/articles/17010.html" target="_blank">Docker基础技术：Linux Namespace（上篇）</a></strong>中我们了解了，UTD、IPC、PID、Mount 四个namespace，我们模仿Docker做了一个相当相当山寨的镜像。在这一篇中，主要想向大家介绍Linux的User和Network的Namespace。</p>
+<p>好，下面我们就介绍一下还剩下的这两个Namespace。</p>
+<h4>User Namespace</h4>
+<p>User Namespace主要是用了CLONE_NEWUSER的参数。使用了这个参数后，内部看到的UID和GID已经与外部不同了，默认显示为65534。那是因为容器找不到其真正的UID所以，设置上了最大的UID（其设置定义在/proc/sys/kernel/overflowuid）。</p>
+<p>要把容器中的uid和真实系统的uid给映射在一起，需要修改 <strong>/proc/&lt;pid&gt;/uid_map</strong> 和 <strong>/proc/&lt;pid&gt;/gid_map</strong> 这两个文件。这两个文件的格式为：</p>
+<p><code><strong>ID-inside-ns ID-outside-ns length</strong></code></p>
+<p>其中：</p>
+<p><span id="more-17029"></span></p>
+<ul>
+<li>第一个字段ID-inside-ns表示在容器显示的UID或GID，</li>
+<li>第二个字段ID-outside-ns表示容器外映射的真实的UID或GID。</li>
+<li>第三个字段表示映射的范围，一般填1，表示一一对应。</li>
+</ul>
+<p>比如，把真实的uid=1000映射成容器内的uid=0</p>
+<pre class="brush: bash; title: ; notranslate">$ cat /proc/2465/uid_map
+         0       1000          1</pre>
+<p>再比如下面的示例：表示把namespace内部从0开始的uid映射到外部从0开始的uid，其最大范围是无符号32位整形</p>
+<pre class="brush: bash; title: ; notranslate">$ cat /proc/$$/uid_map
+         0          0          4294967295</pre>
+<p>另外，需要注意的是：</p>
+<ul>
+<li>写这两个文件的进程需要这个namespace中的CAP_SETUID (CAP_SETGID)权限（可参看<a href="http://man7.org/linux/man-pages/man7/capabilities.7.html" target="_blank">Capabilities</a>）</li>
+<li>写入的进程必须是此user namespace的父或子的user namespace进程。</li>
+<li>另外需要满如下条件之一：1）父进程将effective uid/gid映射到子进程的user namespace中，2）父进程如果有CAP_SETUID/CAP_SETGID权限，那么它将可以映射到父进程中的任一uid/gid。</li>
+</ul>
+<p>这些规则看着都烦，我们来看程序吧（下面的程序有点长，但是非常简单，如果你读过《Unix网络编程》上卷，你应该可以看懂）：</p>
+<pre class="brush: cpp; title: ; notranslate">#define _GNU_SOURCE
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;sys/mount.h&gt;
+#include &lt;sys/capability.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;sched.h&gt;
+#include &lt;signal.h&gt;
+#include &lt;unistd.h&gt;
+
+#define STACK_SIZE (1024 * 1024)
+
+static char container_stack[STACK_SIZE];
+char* const container_args[] = {
+    &quot;/bin/bash&quot;,
+    NULL
+};
+
+int pipefd[2];
+
+void set_map(char* file, int inside_id, int outside_id, int len) {
+    FILE* mapfd = fopen(file, &quot;w&quot;);
+    if (NULL == mapfd) {
+        perror(&quot;open file error&quot;);
+        return;
+    }
+    fprintf(mapfd, &quot;%d %d %d&quot;, inside_id, outside_id, len);
+    fclose(mapfd);
+}
+
+void set_uid_map(pid_t pid, int inside_id, int outside_id, int len) {
+    char file[256];
+    sprintf(file, &quot;/proc/%d/uid_map&quot;, pid);
+    set_map(file, inside_id, outside_id, len);
+}
+
+void set_gid_map(pid_t pid, int inside_id, int outside_id, int len) {
+    char file[256];
+    sprintf(file, &quot;/proc/%d/gid_map&quot;, pid);
+    set_map(file, inside_id, outside_id, len);
+}
+
+int container_main(void* arg)
+{
+
+    printf(&quot;Container [%5d] - inside the container!\n&quot;, getpid());
+
+    printf(&quot;Container: eUID = %ld;  eGID = %ld, UID=%ld, GID=%ld\n&quot;,
+            (long) geteuid(), (long) getegid(), (long) getuid(), (long) getgid());
+
+    /* 等待父进程通知后再往下执行（进程间的同步） */
+    char ch;
+    close(pipefd[1]);
+    read(pipefd[0], &amp;ch, 1);
+
+    printf(&quot;Container [%5d] - setup hostname!\n&quot;, getpid());
+    //set hostname
+    sethostname(&quot;container&quot;,10);
+
+    //remount &quot;/proc&quot; to make sure the &quot;top&quot; and &quot;ps&quot; show container's information
+    mount(&quot;proc&quot;, &quot;/proc&quot;, &quot;proc&quot;, 0, NULL);
+
+    execv(container_args[0], container_args);
+    printf(&quot;Something's wrong!\n&quot;);
+    return 1;
+}
+
+int main()
+{
+    const int gid=getgid(), uid=getuid();
+
+    printf(&quot;Parent: eUID = %ld;  eGID = %ld, UID=%ld, GID=%ld\n&quot;,
+            (long) geteuid(), (long) getegid(), (long) getuid(), (long) getgid());
+
+    pipe(pipefd);
+ 
+    printf(&quot;Parent [%5d] - start a container!\n&quot;, getpid());
+
+    int container_pid = clone(container_main, container_stack+STACK_SIZE, 
+            CLONE_NEWUTS | CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWUSER | SIGCHLD, NULL);
+
+    
+    printf(&quot;Parent [%5d] - Container [%5d]!\n&quot;, getpid(), container_pid);
+
+    //To map the uid/gid, 
+    //   we need edit the /proc/PID/uid_map (or /proc/PID/gid_map) in parent
+    //The file format is
+    //   ID-inside-ns   ID-outside-ns   length
+    //if no mapping, 
+    //   the uid will be taken from /proc/sys/kernel/overflowuid
+    //   the gid will be taken from /proc/sys/kernel/overflowgid
+    set_uid_map(container_pid, 0, uid, 1);
+    set_gid_map(container_pid, 0, gid, 1);
+
+    printf(&quot;Parent [%5d] - user/group mapping done!\n&quot;, getpid());
+
+    /* 通知子进程 */
+    close(pipefd[1]);
+
+    waitpid(container_pid, NULL, 0);
+    printf(&quot;Parent - container stopped!\n&quot;);
+    return 0;
+}</pre>
+<p>上面的程序，我们用了一个pipe来对父子进程进行同步，为什么要这样做？因为子进程中有一个execv的系统调用，这个系统调用会把当前子进程的进程空间给全部覆盖掉，我们希望在execv之前就做好user namespace的uid/gid的映射，这样，execv运行的/bin/bash就会因为我们设置了uid为0的inside-uid而变成#号的提示符。</p>
+<p>整个程序的运行效果如下：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ id
+uid=1000(hchen) gid=1000(hchen) groups=1000(hchen)
+
+hchen@ubuntu:~$ ./user #&lt;--以hchen用户运行
+Parent: eUID = 1000;  eGID = 1000, UID=1000, GID=1000 
+Parent [ 3262] - start a container!
+Parent [ 3262] - Container [ 3263]!
+Parent [ 3262] - user/group mapping done!
+Container [    1] - inside the container!
+Container: eUID = 0;  eGID = 0, UID=0, GID=0 #&lt;---Container里的UID/GID都为0了
+Container [    1] - setup hostname!
+
+root@container:~# id #&lt;----我们可以看到容器里的用户和命令行提示符是root用户了
+uid=0(root) gid=0(root) groups=0(root),65534(nogroup)</pre>
+<p>虽然容器里是root，但其实这个容器的/bin/bash进程是以一个普通用户hchen来运行的。这样一来，我们容器的安全性会得到提高。</p>
+<p>我们注意到，User Namespace是以普通用户运行，但是别的Namespace需要root权限，那么，如果我要同时使用多个Namespace，该怎么办呢？一般来说，我们先用一般用户创建User Namespace，然后把这个一般用户映射成root，在容器内用root来创建其它的Namesapce。</p>
+<h4>Network Namespace</h4>
+<p>Network的Namespace比较啰嗦。在Linux下，我们一般用ip命令创建Network Namespace（Docker的源码中，它没有用ip命令，而是自己实现了ip命令内的一些功能——是用了Raw Socket发些“奇怪”的数据，呵呵）。这里，我还是用ip命令讲解一下。</p>
+<p>首先，我们先看个图，下面这个图基本上就是Docker在宿主机上的网络示意图（其中的物理网卡并不准确，因为docker可能会运行在一个VM中，所以，这里所谓的“物理网卡”其实也就是一个有可以路由的IP的网卡）</p>
+<p><img src="http://coolshell.cn//wp-content/uploads/2015/04/network.namespace.jpg" alt="network.namespace" width="407" height="300" class="aligncenter size-full wp-image-17040" /></p>
+<p>上图中，Docker使用了一个私有网段，172.40.1.0，docker还可能会使用10.0.0.0和192.168.0.0这两个私有网段，关键看你的路由表中是否配置了，如果没有配置，就会使用，如果你的路由表配置了所有私有网段，那么docker启动时就会出错了。</p>
+<p>当你启动一个Docker容器后，你可以使用ip link show或ip addr show来查看当前宿主机的网络情况（我们可以看到有一个docker0，还有一个veth22a38e6的虚拟网卡——给容器用的）：</p>
+<pre class="brush: bash; highlight: [6,8]; title: ; notranslate">hchen@ubuntu:~$ ip link show
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state ... 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc ...
+    link/ether 00:0c:29:b7:67:7d brd ff:ff:ff:ff:ff:ff
+3: docker0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 ...
+    link/ether 56:84:7a:fe:97:99 brd ff:ff:ff:ff:ff:ff
+5: veth22a38e6: &lt;BROADCAST,UP,LOWER_UP&gt; mtu 1500 qdisc ...
+    link/ether 8e:30:2a:ac:8c:d1 brd ff:ff:ff:ff:ff:ff</pre>
+<p>那么，要做成这个样子应该怎么办呢？我们来看一组命令：</p>
+<pre class="brush: bash; title: ; notranslate">## 首先，我们先增加一个网桥lxcbr0，模仿docker0
+brctl addbr lxcbr0
+brctl stp lxcbr0 off
+ifconfig lxcbr0 192.168.10.1/24 up #为网桥设置IP地址
+
+## 接下来，我们要创建一个network namespace - ns1
+
+# 增加一个namesapce 命令为 ns1 （使用ip netns add命令）
+ip netns add ns1 
+
+# 激活namespace中的loopback，即127.0.0.1（使用ip netns exec ns1来操作ns1中的命令）
+ip netns exec ns1   ip link set dev lo up 
+
+## 然后，我们需要增加一对虚拟网卡
+
+# 增加一个pair虚拟网卡，注意其中的veth类型，其中一个网卡要按进容器中
+ip link add veth-ns1 type veth peer name lxcbr0.1
+
+# 把 veth-ns1 按到namespace ns1中，这样容器中就会有一个新的网卡了
+ip link set veth-ns1 netns ns1
+
+# 把容器里的 veth-ns1改名为 eth0 （容器外会冲突，容器内就不会了）
+ip netns exec ns1  ip link set dev veth-ns1 name eth0 
+
+# 为容器中的网卡分配一个IP地址，并激活它
+ip netns exec ns1 ifconfig eth0 192.168.10.11/24 up
+
+
+# 上面我们把veth-ns1这个网卡按到了容器中，然后我们要把lxcbr0.1添加上网桥上
+brctl addif lxcbr0 lxcbr0.1
+
+# 为容器增加一个路由规则，让容器可以访问外面的网络
+ip netns exec ns1     ip route add default via 192.168.10.1
+
+# 在/etc/netns下创建network namespce名称为ns1的目录，
+# 然后为这个namespace设置resolv.conf，这样，容器内就可以访问域名了
+mkdir -p /etc/netns/ns1
+echo &quot;nameserver 8.8.8.8&quot; &gt; /etc/netns/ns1/resolv.conf </pre>
+<p>上面基本上就是docker网络的原理了，只不过，</p>
+<ul>
+<li>
+Docker的resolv.conf没有用这样的方式，而是用了<a title="Docker基础技术：Linux Namespace（上）" href="http://coolshell.cn/articles/17010.html" target="_blank">上篇中的Mount Namesapce的那种方式</a></li>
+<li>
+另外，docker是用进程的PID来做Network Namespace的名称的。</li>
+</ul>
+<p>了解了这些后，你甚至可以为正在运行的docker容器增加一个新的网卡：</p>
+<pre class="brush: bash; title: ; notranslate">ip link add peerA type veth peer name peerB 
+brctl addif docker0 peerA 
+ip link set peerA up 
+ip link set peerB netns ${container-pid} 
+ip netns exec ${container-pid} ip link set dev peerB name eth1 
+ip netns exec ${container-pid} ip link set eth1 up ; 
+ip netns exec ${container-pid} ip addr add ${ROUTEABLE_IP} dev eth1 ;</pre>
+<p>上面的示例是我们为正在运行的docker容器，增加一个eth1的网卡，并给了一个静态的可被外部访问到的IP地址。</p>
+<p>这个需要把外部的“物理网卡”配置成混杂模式，这样这个eth1网卡就会向外通过ARP协议发送自己的Mac地址，然后外部的交换机就会把到这个IP地址的包转到“物理网卡”上，因为是混杂模式，所以eth1就能收到相关的数据，一看，是自己的，那么就收到。这样，Docker容器的网络就和外部通了。</p>
+<p>当然，无论是Docker的NAT方式，还是混杂模式都会有性能上的问题，NAT不用说了，存在一个转发的开销，混杂模式呢，网卡上收到的负载都会完全交给所有的虚拟网卡上，于是就算一个网卡上没有数据，但也会被其它网卡上的数据所影响。</p>
+<p>这两种方式都不够完美，我们知道，真正解决这种网络问题需要使用VLAN技术，于是Google的同学们为Linux内核实现了一个<a href="https://lwn.net/Articles/620087/" target="_blank">IPVLAN的驱动</a>，这基本上就是为Docker量身定制的。</p>
+<h4>Namespace文件</h4>
+<p>上面就是目前Linux Namespace的玩法。 现在，我来看一下其它的相关东西。</p>
+<p>让我们运行一下上篇中的那个pid.mnt的程序（也就是PID Namespace中那个mount proc的程序），然后不要退出。</p>
+<pre class="brush: cpp; title: ; notranslate">$ sudo ./pid.mnt 
+[sudo] password for hchen: 
+Parent [ 4599] - start a container!
+Container [    1] - inside the container!</pre>
+<p>我们到另一个shell中查看一下父子进程的PID：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ pstree -p 4599
+pid.mnt(4599)───bash(4600)</pre>
+<p>我们可以到proc下（/proc//ns）查看进程的各个namespace的id（内核版本需要3.8以上）。</p>
+<p>下面是父进程的：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ sudo ls -l /proc/4599/ns
+total 0
+lrwxrwxrwx 1 root root 0  4月  7 22:01 ipc -&gt; ipc:[4026531839]
+lrwxrwxrwx 1 root root 0  4月  7 22:01 mnt -&gt; mnt:[4026531840]
+lrwxrwxrwx 1 root root 0  4月  7 22:01 net -&gt; net:[4026531956]
+lrwxrwxrwx 1 root root 0  4月  7 22:01 pid -&gt; pid:[4026531836]
+lrwxrwxrwx 1 root root 0  4月  7 22:01 user -&gt; user:[4026531837]
+lrwxrwxrwx 1 root root 0  4月  7 22:01 uts -&gt; uts:[4026531838]</pre>
+<p>下面是子进程的：</p>
+<pre class="brush: bash; title: ; notranslate">hchen@ubuntu:~$ sudo ls -l /proc/4600/ns
+total 0
+lrwxrwxrwx 1 root root 0  4月  7 22:01 ipc -&gt; ipc:[4026531839]
+lrwxrwxrwx 1 root root 0  4月  7 22:01 mnt -&gt; mnt:[4026532520]
+lrwxrwxrwx 1 root root 0  4月  7 22:01 net -&gt; net:[4026531956]
+lrwxrwxrwx 1 root root 0  4月  7 22:01 pid -&gt; pid:[4026532522]
+lrwxrwxrwx 1 root root 0  4月  7 22:01 user -&gt; user:[4026531837]
+lrwxrwxrwx 1 root root 0  4月  7 22:01 uts -&gt; uts:[4026532521]</pre>
+<p>我们可以看到，其中的ipc，net，user是同一个ID，而mnt,pid,uts都是不一样的。如果两个进程指向的namespace编号相同，就说明他们在同一个namespace下，否则则在不同namespace里面。</p>
+<p>这些文件还有另一个作用，那就是，一旦这些文件被打开，只要其fd被占用着，那么就算PID所属的所有进程都已经结束，创建的namespace也会一直存在。比如：我们可以通过：mount &#8211;bind /proc/4600/ns/uts ~/uts 来hold这个namespace。</p>
+<p>另外，我们在上篇中讲过一个setns的系统调用，其函数声明如下：</p>
+<pre class="brush: cpp; title: ; notranslate">int setns(int fd, int nstype);</pre>
+<p>其中第一个参数就是一个fd，也就是一个open()系统调用打开了上述文件后返回的fd，比如：</p>
+<pre class="brush: cpp; title: ; notranslate">fd = open(&quot;/proc/4600/ns/nts&quot;, O_RDONLY);  // 获取namespace文件描述符
+setns(fd, 0); // 加入新的namespace </pre>
+<h4>参考文档</h4>
+<ul>
+<li><a href="http://lwn.net/Articles/531114/" target="_blank">Namespaces in operation</a></li>
+<li><a href="http://man7.org/linux/man-pages/man7/namespaces.7.html" target="_blank">Linux Namespace Man Page</a></li>
+<li><a href="http://crosbymichael.com/creating-containers-part-1.html" target="_blank">Creat Containers &#8211; Part 1</a></li>
+<li><a href="https://blog.jtlebi.fr/2013/12/22/introduction-to-linux-namespaces-part-1-uts/" target="_blank">Introduction to Linux namespaces</a></li>
+<p>（应网友card323加入）</p>
+</ul>
+<p>（全文完）
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-17010" data-post-type="none" ><small class="wp_rp_publish_date">2015年04月16日</small> <a href="http://coolshell.cn/articles/17010.html" class="wp_rp_title">Docker基础技术：Linux Namespace（上）</a></li><li data-position="1" data-poid="in-17049" data-post-type="none" ><small class="wp_rp_publish_date">2015年04月17日</small> <a href="http://coolshell.cn/articles/17049.html" class="wp_rp_title">Docker基础技术：Linux CGroup</a></li><li data-position="2" data-poid="in-12103" data-post-type="none" ><small class="wp_rp_publish_date">2014年11月21日</small> <a href="http://coolshell.cn/articles/12103.html" class="wp_rp_title">vfork 挂掉的一个问题</a></li><li data-position="3" data-poid="in-11847" data-post-type="none" ><small class="wp_rp_publish_date">2014年08月06日</small> <a href="http://coolshell.cn/articles/11847.html" class="wp_rp_title">谜题的答案和活动的心得体会</a></li><li data-position="4" data-poid="in-9917" data-post-type="none" ><small class="wp_rp_publish_date">2013年07月08日</small> <a href="http://coolshell.cn/articles/9917.html" class="wp_rp_title">Alan Cox：大教堂、市集与市议会</a></li><li data-position="5" data-poid="in-9859" data-post-type="none" ><small class="wp_rp_publish_date">2013年06月30日</small> <a href="http://coolshell.cn/articles/9859.html" class="wp_rp_title">Alan Cox：单向链表中prev指针的妙用</a></li><li data-position="6" data-poid="in-9104" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月20日</small> <a href="http://coolshell.cn/articles/9104.html" class="wp_rp_title">sed 简明教程</a></li><li data-position="7" data-poid="in-9070" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月17日</small> <a href="http://coolshell.cn/articles/9070.html" class="wp_rp_title">AWK 简明教程</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/17029.html/feed</wfw:commentRss>
+		<slash:comments>24</slash:comments>
+		</item>
+		<item>
+		<title>关于移动端的钓鱼式攻击</title>
+		<link>http://coolshell.cn/articles/17066.html</link>
+		<comments>http://coolshell.cn/articles/17066.html#comments</comments>
+		<pubDate>Tue, 14 Apr 2015 00:13:23 +0000</pubDate>
+		<dc:creator><![CDATA[陈皓]]></dc:creator>
+				<category><![CDATA[Web开发]]></category>
+		<category><![CDATA[杂项资源]]></category>
+		<category><![CDATA[程序设计]]></category>
+		<category><![CDATA[网络安全]]></category>
+		<category><![CDATA[Android]]></category>
+		<category><![CDATA[iOS]]></category>
+		<category><![CDATA[安全]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=17066</guid>
+		<description><![CDATA[今天，在微博上看了一篇《微信和淘宝到底是谁封谁》的文章，我觉得文章中逻辑错乱，所以，我发了一篇关于这篇文章逻辑 [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p><img class="alignright size-full wp-image-17069" src="http://coolshell.cn//wp-content/uploads/2015/04/phishing-1.jpg" alt="phishing-1" width="300" height="300" />今天，在微博上看了一篇《<a href="http://weibo.com/p/1001603830475402664763" target="_blank">微信和淘宝到底是谁封谁</a>》的文章，我觉得文章中逻辑错乱，所以，我发了一篇<a href="http://weibo.com/p/1001603831131286939079" target="_blank">关于这篇文章逻辑问题的长微博</a>。后面，我被原博主冷嘲热讽了一番，说是什么鸡汤啊，什么我与某某之流的人在一起混淆视听啊，等等。并且也有一些网友找我讨论一下相关的钓鱼式攻击的技术问题。所以，我想写下这篇纯技术文章，因为我对那些商业利益上的东西不关心，所以，只谈技术，这样最简单。</p>
+<p>首先说明一下，<strong>我个人不是一个安全专家，也不是一个移动开发专家，按道理来说，这篇文章不应该我来写，但是我就试一试，请原谅我的无知，也期待抛砖引玉了，希望安全的同学斧正</strong>。</p>
+<p>关于钓鱼式攻击，其实是通过一种社会工程学的方式来愚弄用户的攻击式，攻击者通常会模仿一个用户信任的网站来偷取用户的机密信息，比如用户密码或是信用卡。一般来说，攻击者会通过邮件和实时通信工具完成，给被攻击者发送一个高仿的网站，然后让用户看不出来与正统网站的差别，然后收集用户的机密数据。</p>
+<h4>移动端钓鱼攻击点分析</h4>
+<p>因为钓鱼式攻击并不新鲜，所以我这里只讲移动方面的。</p>
+<p>在移动端，这个事情会更容易干，因为移动端有如下特点：</p>
+<ul>
+<li>移动端的UI只能有一个应用占据整个屏幕，你只能看到一个应用，而且用户屏幕小，能显示的信息有限，比如浏览器里的网址是显示不全的。这会给钓鱼攻击有很多可乘之机。</li>
+</ul>
+<ul>
+<li>移动端的平台有其安全的设计。每个应用都是隔离开的，一个应用无法获取另一个应用的数据。而且应用的下载基本上来说都是来自合法的地方。比如iOS的设备通过App Store下载，每个程序都有自己的签名保证不会被篡改。而且移动端的的应用有各种权限配置，这样也能很大程度提高安全性。</li>
+</ul>
+<ul>
+<li>移动端的APP有些有些是收费的，所以自然会有盗版需求，虽然在平台上做了一些安全设计，但是并不完美。用户可以越狱，可以root。这给恶意软件有了可乘之机。</li>
+</ul>
+<p>下面我们来分析下移动端的用户操作，我们重点关注用户控制权的切换过程（因为这是攻击点）</p>
+<p><span id="more-17066"></span></p>
+<p>在移动设备上，基本上来说，用户的控制切换有四种：</p>
+<ul>
+<li>从一个APP切到另一个APP，也就是我们所谓的唤出APP。</li>
+<li>从一个APP唤出一个Web，常见为一个嵌入式的WebView或是一个浏览器</li>
+<li>从一个Web唤出一个APP，这需要浏览器支持一些非标准的HTTP协议，比如skype://之类的。</li>
+<li>从一个Web到另一个Web，这和Web上的方式差不多。</li>
+</ul>
+<p>基本上来说，<strong>黑客的攻击从来都是找这样的转换环节来做文章的，并且需要一个用户非常熟悉的场景（这样用户才会放松警惕）</strong>。</p>
+<p>通过观察移动APP的特性，我们可以知道，当用户控制切换时，有下面的这些特性：</p>
+<ul>
+<li>到另一个APP时，需要用户登录（如果登录的session过期了）</li>
+<li>当支付的时候，需要用户输入支付信息（信用卡信息、支持密码）</li>
+</ul>
+<p>那么用户在移动APP上经常做的事是什么？</p>
+<ul>
+<li><strong>社交分享</strong>：分享到微博，分享到微信等等，分享的时候，可能需要你输入用户名和口令。</li>
+</ul>
+<ul>
+<li><strong>应用内购</strong>：一般来说APP会有两种，一种免费的，一种是收费的，大量的用户都是下载免费的，然后通过什么“开通更多关卡”、“去广告”、“买道具”之类的东西，让用户输入支付信息。Apple的支付的时候也会要用户输入Apple ID的密码。</li>
+</ul>
+<ul>
+<li><strong>点击链接</strong>：有时候，我们收到短信，或是二维码，或是一个微信微博，会让我们去点击一个网站链接，这个网站链接要么就是打开一个网页，要么就是启动应用，要么就是跳转到应用市场去下载应用（如果你没安装）。</li>
+</ul>
+<p>所以，一个好的钓鱼式攻击一定会从这些地方入手，然后高仿UI以及交互流程，这个交互流程和用户日常操作的完全一样，让用户无法察觉。任何方式的钓鱼攻击简单来说，会有两种：</p>
+<ul>
+<li><strong>一种是直接攻击：</strong>你下载了一个恶意的APP，或是打开了一个恶意的冒牌APP。</li>
+<li><strong>一种是中间人攻击：</strong>用户控制权转换时的两端都是正规应用，但是中间的过程不是正常的。</li>
+</ul>
+<h4>攻击方式</h4>
+<p>下面是一些常见的攻击方式：</p>
+<h5>从一个应用唤起另一个应用的方式</h5>
+<p><strong>直接攻击</strong></p>
+<p>当你点击一个社交分享按钮，或是一个支付按钮的时候。就会转到一个页面，这个页面需要你输入用户机密信息（密码或是支付信息），然后再唤起真正的APP。</p>
+<p>一个有恶意的APP可能会让你放松警惕，因为，这个你在安装这个APP的时候，你会发现这个APP根本不需要任何的权限（Android上的），甚至连网络访问的权限都不要，因为在Android下，App可以通过别的组件访问互联网，比如：恶意应用可能创建一个MediaPlayer Object，然后就可以通过这个对象访问一个URL然后把偷到的信息发送出去。</p>
+<p>你的手机要被安装一个恶意的应用并不难，同样通过社工的方式，比如：盗版，色情，伪装成客服等等通过人性的弱点让你去一些非受信的市场上安装。iOS设备上的应用也可以不用通过App Store安装（通过itms-services协议，可以通过safari浏览器直接在IOS设备上安装应用程序）。</p>
+<p>还有，人们都是贪小便宜的人，所以，会到某些地方买一些便宜的手机（比如淘宝），现在的高仿手机，翻新的二手手机对于一般人甚至安全专家来说完全没有识别能力。这些手机中有很大可能藏有恶意程序。你千万不要以为你格式化手机就OK了。今天（2015年4月14日）早上CCTV2台的“第一时间”就说了一个案例，你可以看看。另外，你可以看看相关的新闻。（另外，你把你的旧手机卖了也要小心，因为你的数据就在里面，旧手机已经成了一个灰色产业链）</p>
+<p>另外，Apple的App需要有一个review过程，这个过程对大众是神秘的，但我觉得应该会包括安全方面的review。不过，这个审核过程可能也有空子可以钻。比如：在review的时候，这个应用完全正常，但在用户使用的时候，会自己从网站下载一些自己的配置文件而改变行为（更为直接的就是访问外部网页时在审核时和在用户应用时可能完全不一样，Apple应该完全没有能力审核应用要访问的外部站点）</p>
+<p><strong>中间人攻击</strong></p>
+<p>我们知道，一个APP唤起另一个APP好多都是用url-scheme的，也就是某种协议，审核这样的协议非常简单，所以如果有恶意的东西在里面基本上很容易看到。但是，如果某些APP并没有注册自己的url-scheme，或是没有被安装，反而，另一个有恶意的APP注册了这个scheme，那么，就会导致恶意的APP被唤起来了（<span style="color: #ff0000;"><strong>这就是我为什么在我的微博中说，如果用户没有安装淘宝的客户端，那么，让微信唤起淘宝的客户端时，有可能是另一个有恶意的APP。但是很多人不懂这个事。<span style="color: #000000;">在iOS下，两个APP通讯正确的做法是“钥匙串机制”</span></strong></span>）。</p>
+<p>当然如果有两个应用被注册了同一个scheme，那么，iOS和Android会给出一个选择，让用户来选（注：iOS的系统有可能会直接跳某个 App 上去，不同版本的跳规则不明确，可以认为是随机跳转）。于是乎，恶意的APP就要努力的让自己比正规的APP看起来更像个正规的APP就可以了。</p>
+<p>在Android平台上，这个事可能更变态，只要恶意的应用有两个权限，一个是随手机操作系统在后台启动，一个是task list（然而这两个权限都是一般权限）。这样一来，当你进行两个APP切换时，恶意程序可以通过task list权限监控到，然后自己马上先于正规的app出现，等到收集完用户数据后简单的退出就好了。这个方式只需要你的程序能在10ms以内反应过来（最佳是5ms左右），人的肉眼根本看不出来。（在iOS设备下，除了jail break后的iPhone可以这么干，正常的都iPhone还没有找到这样的攻击方式）</p>
+<h5>在一个应用内内嵌Web的方式</h5>
+<p>这种方式更容易攻击了，现在很多很多应用都是内嵌的Web的形式，你完全不知道打开的网页的网站是什么，因为这些内嵌的WebView你连地址都看不见。而且无论是iOS或Android，其WebView都可以执行任何的Javascript代码，就算显示URL，URL也可能是被混乱过的，你也看不全，你也很容易上当。当然，那些使用带SSL证书的支持HTTPS的网站（尤其是EV证书）可以在地址栏上显示一个绿色的标记表示你访问的就是正确网址，但是并不是所有的浏览器都会这样，比如iPhone的Safari并没有这个提示，所以，你一定要用Chrome。</p>
+<p>更狠的是就算你打开的是一个正确的URL，你依然可能被中间人攻击。尤其是这个网站使用了明文的HTTP协议，而你又喜欢蹭那些免费的WiFi，于是很容易给把服务器返回给你的网页中做修改，比如，修改网页中login表单或是支付表单提交的网站（想想天朝的网络运营商给你访问的正常的网页弹广告这事吧）</p>
+<p>关于DNS劫持，有些人觉得这事可能遇不上，因为这是一个全网的问题，如果你有这样的想法你就错了。还是那样，你爱占便宜，蹭上那些没有密码的WiFi，你完不知道，你连上去的那个WiFi会设置什么样的DNS服务器，你输入了www.taobao.com，但你打开的网站根本就是不是淘定，而是一个钓鱼网站。你会知道你打开的是错的了么？基本不可能。所以，安全点的网站都是要用HTTPS，但是还是那句话，iPhone的Safari并不会提示你打开网站的SSL证书合不合法（事实上，在手机上的很多浏览器都不会这提示，只有Chrome会）。</p>
+<p>关于攻击的方式我不想讲太多，还有很多高级+猥琐的方式我也不是完全知道，知道了我也不说，不然，教人犯罪了。</p>
+<p>关于从Web端唤起APP是和，APP唤醒APP的攻击方式基本一样。我就不说了。</p>
+<h4>怎么防范钓鱼式攻击</h4>
+<p>首先，我们要知道，钓鱼式攻击是一件非常难搞的事。要搞定这个事，一般来说需要四个方面：<strong>立法层面</strong>、<strong>用户培训层面</strong>、<strong>宣传层面</strong>、与<strong>技术保全措施层面</strong>。</p>
+<p><strong>教育方面</strong></p>
+<p>打击网钓的策略之一，是试着培养人们识别网钓，并教导怎样处理这些问题。只需要稍稍修改人们浏览习惯的方式，很多问题都可以避免。随着人们越来越认识到网钓者所使用的社会工程学技俩，传统的网钓欺诈技术可能在未来过时。</p>
+<ul>
+<li>对别人发来的链接要小心，尤其是让你输入机密信息的链接要小心检查。</li>
+</ul>
+<ul>
+<li>到正规的地方买手机，不要贪图小便宜。旧手机在卖前要“物理删除”数据。</li>
+</ul>
+<ul>
+<li>不要对手机越狱，不要root。</li>
+</ul>
+<ul>
+<li>不要从非信任的地方下载软件。</li>
+</ul>
+<ul>
+<li>要小心免费的WiFi。</li>
+</ul>
+<ul>
+<li>输入机密数据的时候一定要小心检查。</li>
+</ul>
+<ul>
+<li>多依赖一些不同的安全体系，比如：网上支付不要只依赖支付宝，尽量使用信用卡（信用卡千万不要设密码），这样就算是被钓鱼了，你还有一个银行安全的缓冲地带——可以不承认交易。</li>
+</ul>
+<ul>
+<li>现在使用手机的频率越来越高，所以，我非常建议你使用更为安全的iPhone手机，一定要打开“查找我的iPhone”功能，然后设上开机密码。iPhone手机可以做到手机丢失了别人都无法使用，包括刷机都刷不了（iOS7以上版本）</li>
+</ul>
+<ul>
+<li>对于一些关键网站，开启两步验证，这样就算你的用户名和密码被钓走了，还有一个动态手机口令做为登录的关卡。</li>
+</ul>
+<p><strong>技术方面</strong></p>
+<ul>
+<li>利用SSL证书来保证从浏览器到网站的访问是现在采用比较多的方式，也是在理论上可行的方式。现代的浏览器都会在URL上放上一个锁的标志，对于EV证书，你会看到浏览器的URL是绿色的（很容易分辨）</li>
+</ul>
+<ul>
+<li>另外，像firefox浏览器有一个petname的插件，你可以为你常上的网站设置一些标签。这样，当你打开钓鱼网站的时候，你会发现这些标签没有显示出来，那就有问题了。</li>
+</ul>
+<ul>
+<li>关于SSL的CA认证机构，你需要管理好你浏览的那些根证书，有些根证书你需要删掉。</li>
+</ul>
+<ul>
+<li>还有一种打击网钓的流行作法是保持一份已知的网钓网站名单，并随时更新。比如<a href="https://www.phishtank.com/" target="_blank">PhishTank</a>，以及<a href="http://www.apac.cn" target="_blank">中国防钓鱼网站联盟</a>。</li>
+</ul>
+<ul>
+<li>增加式登录方式。这种方式被美国银行采用，就是说，你可以上传一个你自己知道的图片，而当你打开登录页面里时，输入了自己的用户名后，你会看到你设置的这个图片被显示出来。如果没有或是显示错了，表示你打开的是钓鱼网站。</li>
+</ul>
+<ul>
+<li>两步验证，通过用户自设密码+手机动态口令登录（好些网站都在使用Google Authenticator的方式，这有点像公司VPN的动态口令）。</li>
+</ul>
+<p>上述都是PC Web上的防范，然而我们的手机移动端做的并不够好，移动端的安全还是要加油。</p>
+<p><strong>安全风控方面</strong></p>
+<p><strong>什么叫安全风控，说白了就是拿钱出来赔偿给被骗的用户，大家相信我，这个事情在基本上所有的公司都会做的</strong>，也就是说，无论你怎么做安全也无法保证绝对的安全，你只能缓解或是降低用户被骗的数量或概率。所以，几乎所有的公司都会有一笔钱专门用来赔偿。</p>
+<p>在西方国家，用户体验很好，我说一个故事，我有一个妹妹在英国，有一天她到ATM上取钱，取完钱后忘了把卡取出，结果后面的人把她的卡里的钱取走了，于是她报了警，等警察做完笔录后，她给银行的客服打了个电话说明了情况，本想冻结银行卡的，但是银行方面二话不说就赔偿了她所有的损失。为什么英国的巴克莱银行这么痛快，是因为他们有风控基金，专门用来处理这样的事的。</p>
+<p>在中国，其实银行和一些大的公司都有这笔安全风控基金，但是，要你非常坚持不懈地申诉，他们才会赔给你，而且还不是全部。要全部的话，我估计你要做一个“刁民”，否则欺负你，没道理。</p>
+<h4>关于微信和淘宝</h4>
+<p>微信和淘宝到底是谁先屏蔽谁我并不关心，这里面的商业利益我也不关心，微信是不是支持卖东西我也不关心。我关心的是寒冬文章中所说的微信上有淘宝钓鱼的安全问题。</p>
+<p>从技术上来说，我觉得要微信和淘宝一起干这事，单方都不行，需要两边的安全专家一起讨论（如果需要，我可以帮你们约）。我这里给一个可能很不成熟的方案，算是抛砖引玉（我不考虑你们之间的商业竞争，我只从用户的角度出发，客户第一）：</p>
+<blockquote><p><strong>我觉得，从业务上来说，淘宝可以在微信上有一个官方的商城。而淘宝的商家，需要取得微信的认证后入住，才能分享相关的商品或店家链接，对此，商家入住，我觉得可通过微信的服务账号与淘宝的商家后台集成可以做到。</strong></p>
+<p><strong>然后，商家也好，买家也好，他们分享商品只能通过微信官方的商城或是商家的服务账号分享出去，而分享出去的商品信息可以是一个比较unique的形式（比如有一个不能伪造的官方认证的标签），而用户的支付可以通过内置的微信支付也可以通过内置的支付宝（通过唤起App并不是一个好的方式，还是应该你们在服务端进行相互的通信）。</strong></p>
+<p><strong>然后微信和淘宝双方通过宣传手段告诉全社会，微信里的商品什么才是正规的，才不是钓鱼的，并给教育用户更为安全地使用手机。</strong></p></blockquote>
+<p>P.S. 我虽然这么说，但从我个人来说，我非常理解微信为了让用户有很好的体验而不让微信成为一个四处都是营销商品的地方。所以，我从个人来说，希望微信不要成为一个商家的营销地。另外，我也知道阿里对移动端的看重，所以，上述的方案虽然对用户体验和安全都比较好，但是从目前商业利益的情况看来基本无法实现。不过我这里也只是抛砖引玉了。</p>
+<p>面对安全和用户这两个事，<strong>你们两个中国最大的互联网公司，应该带头做好榜样，你们都是不缺钱的公司，应该更多的承担起社会的责任，真正为用户做点什么，而不是整天想着流量入口，互相屏蔽，互相指责，想着自己能有多少用户，这TMD太LOW了，和你们的地位完全不符。所以，从站在用户的角度上来说，我希望微信和淘宝都能站在用户的角度上思考问题，一起合作来真正的为用户更好的服务。</strong></p>
+<p>（全文完）
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-12225" data-post-type="none" ><small class="wp_rp_publish_date">2014年12月15日</small> <a href="http://coolshell.cn/articles/12225.html" class="wp_rp_title">DHH 谈混合移动应用开发</a></li><li data-position="1" data-poid="in-12136" data-post-type="none" ><small class="wp_rp_publish_date">2014年11月26日</small> <a href="http://coolshell.cn/articles/12136.html" class="wp_rp_title">Google Inbox如何跨平台重用代码？</a></li><li data-position="2" data-poid="in-11973" data-post-type="none" ><small class="wp_rp_publish_date">2014年09月28日</small> <a href="http://coolshell.cn/articles/11973.html" class="wp_rp_title">bash代码注入的安全漏洞</a></li><li data-position="3" data-poid="in-11466" data-post-type="none" ><small class="wp_rp_publish_date">2014年04月21日</small> <a href="http://coolshell.cn/articles/11466.html" class="wp_rp_title">C语言的整型溢出问题</a></li><li data-position="4" data-poid="in-11021" data-post-type="none" ><small class="wp_rp_publish_date">2014年02月10日</small> <a href="http://coolshell.cn/articles/11021.html" class="wp_rp_title">从“黑掉Github”学Web安全开发</a></li><li data-position="5" data-poid="in-8711" data-post-type="none" ><small class="wp_rp_publish_date">2012年12月10日</small> <a href="http://coolshell.cn/articles/8711.html" class="wp_rp_title">程序员疫苗：代码注入</a></li><li data-position="6" data-poid="in-6976" data-post-type="none" ><small class="wp_rp_publish_date">2012年04月09日</small> <a href="http://coolshell.cn/articles/6976.html" class="wp_rp_title">谈谈数据安全和云存储</a></li><li data-position="7" data-poid="in-6424" data-post-type="none" ><small class="wp_rp_publish_date">2012年01月06日</small> <a href="http://coolshell.cn/articles/6424.html" class="wp_rp_title">Hash Collision DoS 问题</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/17066.html/feed</wfw:commentRss>
+		<slash:comments>37</slash:comments>
+		</item>
+		<item>
+		<title>Linus：为何对象引用计数必须是原子的</title>
+		<link>http://coolshell.cn/articles/16910.html</link>
+		<comments>http://coolshell.cn/articles/16910.html#comments</comments>
+		<pubDate>Wed, 31 Dec 2014 01:59:33 +0000</pubDate>
+		<dc:creator><![CDATA[Leo]]></dc:creator>
+				<category><![CDATA[程序设计]]></category>
+		<category><![CDATA[编程语言]]></category>
+		<category><![CDATA[Atomic]]></category>
+		<category><![CDATA[Concurrency]]></category>
+		<category><![CDATA[Linus Torvalds]]></category>
+		<category><![CDATA[lock-free]]></category>
+		<category><![CDATA[Parallelism]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=16910</guid>
+		<description><![CDATA[（感谢网友 @我的上铺叫路遥 投稿） Linus大神又在rant了！这次的吐槽对象是时下很火热的并行技术(pa [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p><strong>（感谢网友 </strong><a href="http://weibo.com/fullofbull" target="_blank"><strong>@我的上铺叫路遥</strong></a><strong> 投稿）</strong></p>
+<p>Linus大神又在rant了！这次的吐槽对象是时下很火热的<strong>并行技术(parellism)</strong>，并直截了当地表示<a title="并行计算基本上就是浪费大家的时间" href="http://www.vaikan.com/linus-parallel-computing-is-a-huge-waste-of-everybodys-time/" target="_blank">并行计算是浪费所有人时间</a>(<a href="http://www.realworldtech.com/forum/?threadid=146066&amp;curpostid=146227">&#8220;The whole &#8220;let&#8217;s parallelize&#8221; thing is a huge waste of everybody&#8217;s time.&#8221;</a>)。大致意思是说<strong>乱序性能快、提高缓存容量、降功耗</strong>。当然笔者不打算正面讨论并行的是是非非（过于宏伟的主题），因为Linus在另一则<a title="reference counting" href="http://www.realworldtech.com/forum/?threadid=146066&amp;curpostid=146183" target="_blank">帖子</a>中举了对象<strong>引用计数(reference counting)</strong>的例子来说明并行的复杂性。</p>
+<p>在Linus回复之前有人指出<strong>对象需要锁机制的情况下，引用计数的原子性问题：</strong></p>
+<blockquote><p>Since it is being accessed in a multi-threaded way, via multiple access paths, generally it needs its own mutex &#8212; otherwise, reference counting would not be required to be atomic and a lock of a higher-level object would suffice.</p>
+<p>由于（对象）通过多线程方式及多种获取渠道，一般而言它需要自身维护一个互斥锁——否则引用计数就不要求是原子的，一个更高层次的对象锁足矣。</p></blockquote>
+<p>而Linus不那么认为：</p>
+<blockquote><p>The problem with reference counts is that you often need to take them *before* you take the lock that protects the object data.</p>
+<p>引用计数的问题在于你经常需要在对象数据<strong>上锁保护之前</strong>完成它。</p></blockquote>
+<p>The thing is, you have two different cases:</p>
+<p>问题有两种情况：</p>
+<p style="padding-left: 30px;"><strong>- object *reference* 对象引用</strong></p>
+<p style="padding-left: 30px;"><strong>- object data 对象数据</strong></p>
+<p>and they have completely different locking.</p>
+<p><strong>它们锁机制是完全不一样的。</strong></p>
+<p><span id="more-16910"></span></p>
+<p>Object data locking is generally per-object. Well, unless you don&#8217;t have huge scalability issues, in which case you may have some external bigger lock (extreme case: one single global lock).</p>
+<p>对象数据保护一般是一个对象拥有一个锁，假设你没有海量扩展性问题，不然你需要一些外部大一点的锁（极端的例子，一个对象一个全局锁）。</p>
+<p>But object *referencing* is mostly about finding the object (and removing/freeing it). Is it on a hash chain? Is it in a tree? Linked list? When the reference count goes down to zero, it&#8217;s not the object data that you need to protect (the object is not used by anything else, so there&#8217;s nothing to protect!), it&#8217;s the ways to find the object you need to protect.</p>
+<p>但对象引用主要关于对象的寻找（移除或释放），它是否在哈希链，一棵树或者链表上。<strong>当对象引用计数降为零，你要保护的不是对象数据，因为对象没有在其它地方使用，你要保护的是对象的寻找操作。</strong></p>
+<p>And the lock for the lookup operation cannot be in the object, because &#8211; by definition &#8211; you don&#8217;t know what the object is! You&#8217;re trying to look it up, after all.</p>
+<p>而且查询操作的锁不可能在对象内部，因为根据定义，你还不知道这是什么对象，你在尝试寻找它。</p>
+<p>So generally you have a lock that protects the lookup operation some way, and the reference count needs to be atomic with respect to that lock.</p>
+<p>因此一般你要对查询操作上锁，而且引用计数相对<strong>那个锁</strong>来说是原子的（译者注：查询锁不是引用计数所在的对象所有，不能保护对象引用计数，后面会解释为何引用计数变更时其所在对象不能上锁）。</p>
+<p>And yes, that lock may well be sufficient, and now you&#8217;re back to non-atomic reference counts. But you usually don&#8217;t have just one way to look things up: you might have pointers from other objects (and that pointer is protected by the object locking of the other object), but there may be multiple such objects that point to this (which is why you have a reference count in the first place!)</p>
+<p>当然这个锁是充分有效的，现在假设引用计数是非原子的，但你常常不仅仅使用一种方式来查询：你可能拥有其它对象的指针（这个指针又被其它对象的对象锁给保护起来），但同时还会有多个对象指向它（这就是为何你第一时间需要引用计数的理由）。</p>
+<p>See what happens? There is no longer one single lock for lookup. Imagine walking a graph of objects, where objects have pointers to each other. Each pointer implies a reference to an object, but as you walk the graph, you have to release the lock from the source object, so you have to take a new reference to the object you are now entering.</p>
+<p>看看会发生什么？查询不止存在一个锁保护。你可以想象走过一张对象流程图，其中对象存在指向其它对象的指针，每个指针暗含了一次对象引用，但当你走过这个流程图，你必须释放源对象的锁，而你进入新对象时又必须增加一次引用。</p>
+<p>And in order to avoid deadlocks, you can not in the general case take the lock of the new object first &#8211; you have to release the lock on the source object, because otherwise (in a complex graph), how do you avoid simple ABBA deadlock?</p>
+<p>而且为了避免死锁，你一般不能立即对新对象上锁——你必须释放源对象的锁，否则在一个复杂流程图里，你如何避免<strong>ABBA死锁</strong>（译者注：假设两个线程，一个是A-&gt;B，另一个B-&gt;;A，当线程一给A上锁，线程二给B上锁，此时两者谁也无法释放对方的锁）？</p>
+<p>So atomic reference counts fix that. They work because when you move from object A to object B, you can do this:</p>
+<p>原子引用计数修正了这一点，当你从对象A到对象B，你会这样做：</p>
+<p>(a) you have a reference count to A, and you can lock A</p>
+<p style="padding-left: 30px;">对象A增加一次引用计数，并上锁。</p>
+<p>(b) once object A is locked, the pointer from A to B is stable, and you know you have a reference to B (because of that pointer from A to B)</p>
+<p style="padding-left: 30px;">对象A一旦上锁，A指向B的指针就是稳定的，于是你知道你引用了对象B。</p>
+<p>(c) but you cannot take the object lock for B (ABBA deadlock) while holding the lock on A</p>
+<p style="padding-left: 30px;">但你不能在对象A上锁期间给B上锁（ABBA死锁）。</p>
+<p>(d) increment the atomic reference count on B</p>
+<p style="padding-left: 30px;">对象B增加一次原子引用计数。</p>
+<p>(e) now you can drop the lock on A (you&#8217;re &#8220;exiting&#8221; A)</p>
+<p style="padding-left: 30px;">现在你可以扔掉对象A的锁（退出对象A）。</p>
+<p>(f) your reference count means that B cannot go away from under you despite unlocking A, so now you can lock B.</p>
+<p style="padding-left: 30px;">对象B的原子引用计数意味着即使给A解锁期间，B也不会失联，现在你可以给B上锁。</p>
+<p>See? Atomic reference counts make this kind of situation possible. Yes, you want to avoid the overhead if at all possible (for example, maybe you have a strict ordering of objects, so you know you can walk from A to B, and never walk from B to A, so there is no ABBA deadlock, and you can just lock B while still holding the lock on A).</p>
+<p>看见了吗？原子引用计数使这种情况成为可能。是的，你想尽一切办法避免这种代价，比如，你也许把对象写成严格顺序的，这样你可以从A到B，绝不会从B到A，如此就不存在ABBA死锁了，你也就可以在A上锁期间给B上锁了。</p>
+<p>But if you don&#8217;t have some kind of forced ordering, and if you have multiple ways to reach an object (and again &#8211; why have reference counts in the first place if that isn&#8217;t true!) then atomic reference counts really are the simple and sane answer.</p>
+<p>但如果你无法做到这种强迫序列，如果你有多种方式接触一个对象（再一次强调，这是第一时间使用引用计数的理由），这样，原子引用计数就是简单又理智的答案。</p>
+<p>If you think atomic refcounts are unnecessary, that&#8217;s a big flag that you don&#8217;t actually understand the complexities of locking.</p>
+<p><strong>如果你认为原子引用计数是不必要的，这就大大说明你实际上不了解锁机制的复杂性。</strong></p>
+<p>Trust me, concurrency is hard. There&#8217;s a reason all the examples of &#8220;look how easy it is to parallelize things&#8221; tend to use simple arrays and don&#8217;t ever have allocations or freeing of the objects.</p>
+<p>相信我，<strong>并发设计是困难的。</strong>所有关于“并行化如此容易”的理由都倾向于使用简单数组操作做例子，甚至不包含对象的分配和释放。</p>
+<p>People who think that the future is highly parallel are invariably completely unaware of just how hard concurrency really is. They&#8217;ve seen Linpack, they&#8217;ve seen all those wonderful examples of sorting an array in parallel, they&#8217;ve seen all these things that have absolutely no actual real complexity &#8211; and often very limited real usefulness.</p>
+<p>那些认为未来是高度并行化的人一成不变地完全没有意识到并发设计是多么困难。他们只见过<a title="Linpack" href="http://en.wikipedia.org/wiki/LINPACK" target="_blank">Linpack</a>，他们只见过并行技术中关于数组排序的一切精妙例子，他们只见过一切绝不算真正复杂的事物——对真正的用处经常是非常有限的。</p>
+<p>（译者注：当然，我无意借大神之口把技术宗教化。实际上Linus又在另一篇<a title="评价" href="http://www.realworldtech.com/forum/?threadid=146066&amp;curpostid=146198" target="_blank">帖子</a>中综合了对并行的评价。）</p>
+<p>Oh, I agree. My example was the simple case. The really complex cases are much worse.</p>
+<p>哦，我同意。我的例子还算简单，真正复杂的用例更糟糕。</p>
+<p>I seriously don&#8217;t believe that the future is parallel. People who think you can solve it with compilers or programming languages (or better programmers) are so far out to lunch that it&#8217;s not even funny.</p>
+<p>我严重不相信未来是并行的。有人认为你可以通过编译器，编程语言或者更好的程序员来解决问题，他们目前都是神志不清，没意识到这一点都不有趣。</p>
+<p>Parallelism works well in simplified cases with fairly clear interfaces and models. You find parallelism in servers with independent queries, in HPC, in kernels, in databases. And even there, people work really hard to make it work at all, and tend to expressly limit their models to be more amenable to it (eg databases do some things much better than others, so DB admins make sure that they lay out their data in order to cater to the limitations).</p>
+<p>并行计算可以在简化的用例以及具备清晰的接口和模型上正常工作。你发现并行在服务器上独立查询里，在高性能计算(High-performance computing)里，在内核里，在数据库里。即使如此，人们还得花很大力气才能使它工作，并且还要明确限制他们的模型来尽更多义务（例如数据库要想做得更好，数据库管理员得确保数据得到合理安排来迎合局限性）。</p>
+<p>Of course, other programming models can work. Neural networks are inherently very parallel indeed. And you don&#8217;t need smarter programmers to program them either..</p>
+<p>当然，其它编程模型倒能派上用场，神经网络(neural networking)天生就是非常并行化的，你不需要更聪明的程序员为之写代码。</p>
+<h4>参考资料</h4>
+<ul>
+<li><a title="Real World Technologies" href="http://www.realworldtech.com/" target="_blank">Real World Technologies</a>：Linus常去“灌水”的一个论坛，讨论未来机器架构（看名字就知道Linus技术偏好，及其之前对虚拟化技术(virtualization)的<a title="virtualization is evil" href="http://www.networkworld.com/article/2220440/opensource-subnet/torvalds-says---virtualization-is-evil-.html" target="_blank">吐槽</a>）</li>
+<li><a title="多线程程序中操作的原子性" href="http://www.parallellabs.com/2010/04/15/atomic-operation-in-multithreaded-application/" target="_blank">多线程程序中操作的原子性</a>：解释为什么i++不是原子操作</li>
+<li><a title="Concurrency Is Not Parallelism" href="http://www.vaikan.com/docs/Concurrency-is-not-Parallelism" target="_blank"> Concurrency Is Not Parallelism</a>：Go语言之父Rob Pike幻灯片解释“并发”与“并行”概念上的区别</li>
+</ul>
+<p>（全文完）
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-9917" data-post-type="none" ><small class="wp_rp_publish_date">2013年07月08日</small> <a href="http://coolshell.cn/articles/9917.html" class="wp_rp_title">Alan Cox：大教堂、市集与市议会</a></li><li data-position="1" data-poid="in-8990" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月04日</small> <a href="http://coolshell.cn/articles/8990.html" class="wp_rp_title">Linus：利用二级指针删除单向链表</a></li><li data-position="2" data-poid="in-8275" data-post-type="none" ><small class="wp_rp_publish_date">2012年09月14日</small> <a href="http://coolshell.cn/articles/8275.html" class="wp_rp_title">对九个超级程序员的采访</a></li><li data-position="3" data-poid="in-6790" data-post-type="none" ><small class="wp_rp_publish_date">2012年03月13日</small> <a href="http://coolshell.cn/articles/6790.html" class="wp_rp_title">多版本并发控制(MVCC)在分布式系统中的应用</a></li><li data-position="4" data-poid="in-2322" data-post-type="none" ><small class="wp_rp_publish_date">2010年04月09日</small> <a href="http://coolshell.cn/articles/2322.html" class="wp_rp_title">Unix传奇(上篇)</a></li><li data-position="5" data-poid="in-1619" data-post-type="none" ><small class="wp_rp_publish_date">2009年10月23日</small> <a href="http://coolshell.cn/articles/1619.html" class="wp_rp_title">Windows 7 的新粉丝 Linus Torvalds</a></li><li data-position="6" data-poid="in-1278" data-post-type="none" ><small class="wp_rp_publish_date">2009年08月16日</small> <a href="http://coolshell.cn/articles/1278.html" class="wp_rp_title">Linus Torvalds 语录 Top 10</a></li><li data-position="7" data-poid="in-3089" data-post-type="none" ><small class="wp_rp_publish_date">2010年10月09日</small> <a href="http://coolshell.cn/articles/3089.html" class="wp_rp_title">Google未公开API：转MAC地址为经纬度</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/16910.html/feed</wfw:commentRss>
+		<slash:comments>27</slash:comments>
+		</item>
+		<item>
+		<title>DHH 谈混合移动应用开发</title>
+		<link>http://coolshell.cn/articles/12225.html</link>
+		<comments>http://coolshell.cn/articles/12225.html#comments</comments>
+		<pubDate>Mon, 15 Dec 2014 02:57:20 +0000</pubDate>
+		<dc:creator><![CDATA[jnj]]></dc:creator>
+				<category><![CDATA[技术读物]]></category>
+		<category><![CDATA[杂项资源]]></category>
+		<category><![CDATA[Android]]></category>
+		<category><![CDATA[Hybrid]]></category>
+		<category><![CDATA[iOS]]></category>
+		<category><![CDATA[Web]]></category>
+		<category><![CDATA[WebView]]></category>
+		<category><![CDATA[移动开发]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=12225</guid>
+		<description><![CDATA[&#160; David，Ruby on Rails 作者，37signals 合伙人 畅销书作家、演说家、赛 [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p>&nbsp;</p>
+<p style="text-align: right;"><img class="paddging: 10px; 20px; alignright wp-image-16861" src="http://coolshell.cn//wp-content/uploads/2014/12/1053-DHH-150x150.jpg" alt="1053-DHH" width="80" height="80" />David，Ruby on Rails 作者，37signals 合伙人</p>
+<p style="text-align: right;">畅销书作家、演说家、赛车手、业余摄影师、顾家好男人</p>
+<p>&nbsp;</p>
+<p><a href="http://37signals.com/" target="_blank">37signals</a> 在2013年2月发布了 Basecamp 的 iPhone app，在此之前我们就使用原生开发（native）还是混合开发（hybrid）做了许多尝试。在2012年项目启动的时候，大多数人都倾向于原生开发。</p>
+<p>Facebook 在2012年发布了他们新的 iOS app，为了获得更好的用户体验，他们放弃了原来的 HTML5 混合开发方式。考虑到2010～2011年的时候，HTML 在移动端的性能确实不尽如人意，这个决定在当时看来也在情理之中。2010年的时候我们觉得 iPhone 3G/3GS 够眩够快，但按照现在的标准来看它们就太慢了。因此在为移动应用开发做架构设计时，我们需要考虑新的移动设备的计算能力，而不是那些老的过时的设备。</p>
+<h4>移动开发架构设计不需要过多考虑设备的性能</h4>
+<p>我们从一些测试中得出的一个结论是：现在的移动设备计算能力都很强，运行原生应用和 HTML 应用的效果差别不大，而 HTML 开发的成本则要比原生开发小得多。</p>
+<p>当然这个结论在某些领域并不太适用。如果你要开发一个 3D 游戏，原生开发方式能够带来更好的游戏体验。但如果你的移动应用象 Basecamp 一样侧重信息处理，为了降低开发成本，你就可以考虑混合开发方式。我们就是如此，下面是我们三代移动产品的发展轨迹：</p>
+<p><span id="more-12225"></span></p>
+<h4>第一代产品：原生外壳(native shell)＋嵌套WebView</h4>
+<p><img class="alignright wp-image-16868 size-medium" src="http://coolshell.cn//wp-content/uploads/2014/12/1159-basecamp-app-phones-300x242.jpg" alt="1159-basecamp-app-phones" width="300" height="242" /></p>
+<p>这个版本就是一个简单的原生外壳负责界面导航，嵌套一个 WebView 来显示 Basecamp Rail application，显示的基本上都是我们移动网站页面，再加上一些特殊的样式。</p>
+<p>在移动网站的页面上嵌套一个原生的壳，听起来还是 Web 页面，但实际带给用户的体验确是非常不同。用户可以在 Apple App Store 找到我们的 app，他们一旦登录 app 后可以再也不用重新登录（移动版本的 Safari 似乎会经常清空 cookie，让你不得不重新登录）。我们的 app 大受欢迎，用户评分在4和5之间。</p>
+<p>整个 app 由一名程序员和一名设计师开发，成本不高，因为我们可以在已有的移动网站的基础上开发。</p>
+<p>如果我们当初开发完全原生的 app，用10个人的团队1年半的时间也未必能完成。</p>
+<p>&nbsp;</p>
+<h4>第二代产品：原生外壳＋原生导航界面</h4>
+<p><img class="alignright wp-image-16869 size-medium" src="http://coolshell.cn//wp-content/uploads/2014/12/1543-unnamed-187x300.png" alt="1543-unnamed" width="187" height="300" /></p>
+<p>几个月前发布的 Basecamp Android app 是我们的第二代产品，我们在其中做了大量的改进。</p>
+<p>从第一代 iPhone app 中我们感受到了原生导航界面的威力，所以在 Android 版本中，我们由 HTML 页面导航转向了原生导航界面。我们从 HTML 页面生成原生导航界面，用户体验更加流畅，原生界面和 HTML 页面的体验差别越来越小，甚至很难区分哪些是原生部分，哪些是 HTML 。</p>
+<p>Android 版本是由一两个程序员和一个设计师开发（50%投入）完成的。我们重用了移动站点和 iPhone app 中使用的所有 webview，大大提高了开发效率，同时用户也很买账，超过1000名用户打了4.5~5的高分。</p>
+<p>很多公司在抱怨他们的 iOS 移动项目进展缓慢，Android 项目似乎更是如此。或许他们已经习惯了 iOS 项目的开发流程，也许是因为 Android 的屏幕碎片化问题，但是这些对我们来说那都不是事。我们推出的 Android app 表现良好，重用了95%的代码，开发团队也一直保持在小规模。</p>
+<p>&nbsp;</p>
+<h4>因地制宜地运用原生开发方式</h4>
+<p>目前我们正在开发第三代产品，发布的平台暂时保密，不过你应该也不难猜到。在前两代产品中，我们增加了原生导航界面的使用，同时进一步确定了以 webview 为核心的整体架构。在第三代产品中，我们将因地制宜地选择需要使用原生开发的功能，好钢要用在刀刃上。</p>
+<p>从之前的100% HTML，到现在的90% HTML +10%原生，我们会选择最值得做原生开发的那10%的部分，最终目的是让 app 原生部分和 HTML 部分的体验没有太大区别。</p>
+<p>&nbsp;</p>
+<h4>混合开发模式使用的技术</h4>
+<p>混合开发模式在技术很简单，主要是处理 webview 的集成、Web 页面的加载，以及原生内容和 HTML 内容之间的交叉链接，其实可能比你想像的还要简单得多。</p>
+<p>HTML 方面，我们的 Rails Web 应用支持 Web 和移动两大平台，其中 <a href="http://edgeguides.rubyonrails.org/4_1_release_notes.html#action-pack-variants" target="_blank">Rails 4.1 feature of variants</a> 起了很大的作用。</p>
+<p>这也很大程度上有助于我们发布新功能。设想一下如果我们每次需要更新这么多平台：Rails desktop app, a Rails API app, a client-side MVC app, a mobile web wrapper app, an Android app, and an iPhone app，像我们这样只有10个程序员和7个设计师的公司根本无力承担如此巨大的工作量。</p>
+<p>除了工作量的减轻，bug 修复效率也提高了，因为大部分的代码逻辑是在 Web 服务器端，我们可以随时修改代码并发布，不用通过 Apple App Store 的审批流程。所以我们的移动 app 和 Web 应用一样，也是持续部署。</p>
+<p>就如我之前提到的，混合模式开发并不适用于所有情况。在2010年以前，那时手机的处理能力都不强，所以 HTML/JS 的体验并不好，用户也不喜欢。但是时过境迁，现在手机的处理能力大大提高了，HTML/JS 的性能也不再是一个问题。</p>
+<p>&nbsp;</p>
+<h4>混合开发模式对原生开发模式的挑战</h4>
+<p>混合开发模式在降低开发复杂度方面有它的优势，如果你的产品是以显示和处理信息为主，我认为都可以不同程度地采用这个模式。</p>
+<p>对于小型团队和公司而言，并不一定需要采用 iOS 原生 app 先行的模式。使用混合模式，不需要你重头开发一个 app，这样可以降低维护成本，将来扩展到其他平台也更为方便。</p>
+<p>当然我知道会有很多人质疑这个模式，或许因为他们的 app 中有很多地方需要原生开发（也许仅仅是他们自己这样认为罢了）。又或许他们已经花了很多时间让 app 里的 UITableView 看起来非常漂亮，以致如果其他地方不这样的话显得不是太完美。再或许大公司就是喜欢耗时耗力的原生开发，有钱就是这么任性。</p>
+<p>无论怎样，混合开发当下应该能够成为我们移动开发策略的一个选择。如果你认为这是一个好的选择，那么恭喜你，尽情愉快地玩耍吧！</p>
+<p>&nbsp;</p>
+<p><em>原文链接：<a href="https://signalvnoise.com/posts/3743?utm_campaign=iOS_Dev_Weekly_Issue_175&amp;utm_medium=email&amp;utm_source=iOS%2BDev%2BWeekly" target="_blank">Hybrid sweet spot: Native navigation, web content</a></em></p>
+<p>&nbsp;</p>
+<p>下面补充一些 David 答读者问：</p>
+<p>&nbsp;</p>
+<p>Mike Waite @ 2014-05-08：我很好奇你是如何决定哪些功能要用原生开发？<br />
+David @ 2014-05-08：主要靠感觉，这毕竟不是一门科学。如果你感觉你app的某一部分如果用原生开发会更好些，可以尝试做快速原型（spike）。很多时候我们通过这种方式证明我们的想法其实是错的。当然如果你需要使用到手机上的功能如：摄像和其他设备时，HTML目前还不太适用，不过永远也不要把话说死。</p>
+<p>&nbsp;</p>
+<p>Mike Parsons @ 2014-05-08：好文。很好奇你们是否使用 PhoneGap 或者 Cordova 这样的框架，或者你们自己开发了一个？<br />
+David @ 2014-05-08：我们没有使用任何框架。（此处省去xxx字）</p>
+<p>&nbsp;</p>
+<p>Derick @ 2014-05-08：你怎样解决 Android 浏览器渲染速度慢的问题？这也是 Android 平台上更多人倾向开发原生app得原因。<br />
+David @ 2014-05-08：不知道你这个结论是近期的还是以前的？Basecamp 的 Android app 在我的 Nexus 5 和 HTC One 上面运行得非常流畅。<br />
+Derick @ 2014-05-08：就是最近。我猜测可能和你使用JavaScript的多少有关系。因为以我个人的经验，Android 上 JavaScript 的运行速度非常慢。如果你感兴趣可以看看下面的文章：<a href="https://www.timroes.de/2013/11/23/old-webview-vs-chromium-webview/" target="_blank">https://www.timroes.de/2013/11/23/old-webview-vs-chromium-webview/</a><br />
+David @ 2014-05-08：我们使用了很多JavaScript，当然没有 Web MVC 客户端用得那样多。另外我们使用了 Turbolinks ：）</p>
+<p>&nbsp;
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-12136" data-post-type="none" ><small class="wp_rp_publish_date">2014年11月26日</small> <a href="http://coolshell.cn/articles/12136.html" class="wp_rp_title">Google Inbox如何跨平台重用代码？</a></li><li data-position="1" data-poid="in-17066" data-post-type="none" ><small class="wp_rp_publish_date">2015年04月14日</small> <a href="http://coolshell.cn/articles/17066.html" class="wp_rp_title">关于移动端的钓鱼式攻击</a></li><li data-position="2" data-poid="in-12206" data-post-type="none" ><small class="wp_rp_publish_date">2014年12月06日</small> <a href="http://coolshell.cn/articles/12206.html" class="wp_rp_title">HTML6 展望</a></li><li data-position="3" data-poid="in-12012" data-post-type="none" ><small class="wp_rp_publish_date">2014年10月12日</small> <a href="http://coolshell.cn/articles/12012.html" class="wp_rp_title">State Threads 回调终结者</a></li><li data-position="4" data-poid="in-11021" data-post-type="none" ><small class="wp_rp_publish_date">2014年02月10日</small> <a href="http://coolshell.cn/articles/11021.html" class="wp_rp_title">从“黑掉Github”学Web安全开发</a></li><li data-position="5" data-poid="in-9749" data-post-type="none" ><small class="wp_rp_publish_date">2013年06月05日</small> <a href="http://coolshell.cn/articles/9749.html" class="wp_rp_title">Javascript 装载和执行</a></li><li data-position="6" data-poid="in-9666" data-post-type="none" ><small class="wp_rp_publish_date">2013年05月22日</small> <a href="http://coolshell.cn/articles/9666.html" class="wp_rp_title">浏览器的渲染原理简介</a></li><li data-position="7" data-poid="in-8767" data-post-type="none" ><small class="wp_rp_publish_date">2012年12月19日</small> <a href="http://coolshell.cn/articles/8767.html" class="wp_rp_title">Web工程师的工具箱</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/12225.html/feed</wfw:commentRss>
+		<slash:comments>19</slash:comments>
+		</item>
+		<item>
+		<title>HTML6 展望</title>
+		<link>http://coolshell.cn/articles/12206.html</link>
+		<comments>http://coolshell.cn/articles/12206.html#comments</comments>
+		<pubDate>Sat, 06 Dec 2014 04:41:34 +0000</pubDate>
+		<dc:creator><![CDATA[jnj]]></dc:creator>
+				<category><![CDATA[Web开发]]></category>
+		<category><![CDATA[技术读物]]></category>
+		<category><![CDATA[HTML]]></category>
+		<category><![CDATA[HTML5]]></category>
+		<category><![CDATA[HTML6]]></category>
+		<category><![CDATA[Web]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=12206</guid>
+		<description><![CDATA[HTML5 概述 HTML5 是 HTML 语言最受欢迎的版本之一，它支持音频和视频、离线存储、移动端、和标签 [&#8230;]]]></description>
+				<content:encoded><![CDATA[<h3><img class="size-full wp-image-12211 alignright" src="http://coolshell.cn//wp-content/uploads/2014/12/html6.jpeg" alt="html6" width="225" height="225" /></h3>
+<h3>HTML5 概述</h3>
+<p>HTML5 是 HTML 语言最受欢迎的版本之一，它支持音频和视频、离线存储、移动端、和标签属性等等。还提供了&lt;article&gt;, &lt;section&gt;, &lt;header&gt;这样的标签来帮助开发者更好地组织页面内容。然而 HTML5 规范仍然没有最后定稿，并且它并不是一个真正意义上的语义标记语言。</p>
+<h3>HTML6 展望</h3>
+<p>你有没有曾经希望能在 HTML 中使用自定义标签？比如：使用&lt;logo&gt;来显示你的网站logo，还有使用&lt;toolbar&gt;来显示工具栏等等。我们经常使用&lt;div id=&#8221;container&#8221;&gt;和&lt;div id=&#8221;wrapper&#8221;&gt;来组织页面，在 HTML6 里我们希望可以直接使用象&lt;container&gt;和&lt;wrapper&gt;这样的自定义标签。</p>
+<p>和 XML 一样，HTML6 应该支持 namespace（命名空间），如：xmlns:xhtml=&#8221;http://www.w3.org/1999/xhtml&#8221;</p>
+<p>HTML6 代码样例：</p>
+<p><span id="more-12206"></span></p>
+<pre>&lt;!DOCTYPE html&gt;
+ &lt;html:html&gt;
+ &lt;html:head&gt;
+ &lt;html:title&gt;A Look Into HTML6&lt;/html:title&gt;
+ &lt;html:meta type="title" value="Page Title"&gt;
+ &lt;html:meta type="description" value="HTML example with namespaces"&gt;
+ &lt;html:link src="css/mainfile.css" title="Styles" type="text/css"&gt;
+ &lt;html:link src="js/mainfile.js" title="Script" type="text/javascript"&gt;
+ &lt;/html:head&gt;
+ &lt;html:body&gt;
+ &lt;header&gt;
+ &lt;logo&gt;
+ &lt;html:media type="image" src="images/xyz.png"&gt;
+ &lt;/logo&gt;
+ &lt;nav&gt;
+ &lt;html:a href="/img1"&gt;a1&lt;/a&gt;
+ &lt;html:a href="/img2"&gt;a2&lt;/a&gt;
+ &lt;/nav&gt;
+ &lt;/header&gt;
+ &lt;content&gt;
+ &lt;article&gt;
+ &lt;h1&gt;Heading of main article&lt;/h1&gt;
+ &lt;h2&gt;Sub-heading of main article&lt;/h2&gt;
+ &lt;p&gt;[...]&lt;/p&gt;
+ &lt;p&gt;[...]&lt;/p&gt;
+ &lt;/article&gt;
+ &lt;article&gt;
+ &lt;h1&gt;The concept of HTML6&lt;/h1&gt;
+ &lt;h2&gt;Understanding the basics&lt;/h2&gt;
+ &lt;p&gt;[...]&lt;/p&gt;
+ &lt;/article&gt;
+ &lt;/content&gt;
+ &lt;footer&gt;
+ &lt;copyright&gt;This site is © to Anonymous 2014&lt;/copyright&gt;
+ &lt;/footer&gt;
+ &lt;/html:body&gt;
+ &lt;/html:html&gt;</pre>
+<p>在上面的代码中，你也许注意到了一些奇怪的&lt;html:x&gt;标签，它们是 W3C 和 HTML6 规范中在命名空间里定义的标签。例如：&lt;html:title&gt;负责设定你浏览器的标题栏文字，&lt;html:media&gt;负责显示图片等等。用户可以自己定义标签以便 JavaScript 和 CSS 识别和处理，这样页面代码会更易读，语义更清晰。</p>
+<h3>HTML6 APIs</h3>
+<p>HTML6 的标签前带有命名空间，如：&lt;html:html&gt;, &lt;html:head&gt;等等。</p>
+<p>1. &lt;html:html&gt;</p>
+<pre>&lt;!DOCTYPE html&gt;
+ &lt;html:html&gt;// this is equivalent to &lt;html&gt; tag written in previous HTML versions
+ &lt;!-- sample of HTML document --&gt;
+ &lt;/html:html&gt;</pre>
+<p>2. &lt;html:head&gt; 和 &lt;head&gt; 标签一样。</p>
+<pre>&lt;!DOCTYPE html&gt;
+ &lt;html:html&gt;
+ &lt;html:head&gt;
+ &lt;!-- Main content would come here, like the &lt;html:title&gt; tag --&gt;
+ &lt;/html:head&gt;
+ &lt;/html:html&gt;</pre>
+<p>3. &lt;html:title&gt; 和 &lt;title&gt; 标签类似。</p>
+<pre>&lt;!DOCTYPE html&gt;
+ &lt;html:html&gt;
+ &lt;html:head&gt;
+ &lt;html:title&gt;A Look Into HTML6&lt;/html:title&gt;
+ &lt;/html:head&gt;
+ &lt;/html:html&gt;</pre>
+<p>4. &lt;html:meta&gt; 和 &lt;meta&gt; 标签类似，不同之处在于，在 HTML5 中你只能使用标准的元数据类型，如：&#8221;keywords&#8221;, &#8220;description&#8221;, &#8220;author&#8221;等，而在 HTML6 中你可以使用任何元数据类型。</p>
+<pre>&lt;!DOCTYPE html&gt;
+ &lt;html:html&gt;
+ &lt;html:head&gt;
+ &lt;html:title&gt;A Look Into HTML6&lt;/html:title&gt;
+ &lt;html:meta type="description" value="HTML example with namespaces"&gt;
+ &lt;/html:head&gt;
+ &lt;/html:html&gt;</pre>
+<p>5. &lt;html:link&gt; 和 HTML6 之前版本的 &lt;link&gt; 标签类似。</p>
+<pre>&lt;!DOCTYPE html&gt;
+ &lt;html:html&gt;
+ &lt;html:head&gt;
+ &lt;html:title&gt;A Look Into HTML6&lt;/html:title&gt;
+ &lt;html:link src="js/mainfile.js" title="Script" type="text/javascript"&gt;
+ &lt;/html:head&gt;
+ &lt;/html:html&gt;</pre>
+<p>6. &lt;html:body&gt; 和 &lt;body&gt; 标签一样。</p>
+<pre>&lt;!DOCTYPE html&gt;
+ &lt;html:html&gt;
+ &lt;html:head&gt;
+ &lt;html:title&gt;A Look Into HTML6&lt;/html:title&gt;
+ &lt;/html:head&gt;
+ &lt;html:body&gt;
+ &lt;!-- This is where your website content is placed --&gt;
+ &lt;/html:body&gt;
+ &lt;/html:html&gt;</pre>
+<p>7. &lt;html:a&gt; 和 &lt;a&gt; 标签类似，区别是 &lt;html:a&gt; 只有 &#8220;href&#8221; 一个属性。</p>
+<pre>&lt;!DOCTYPE html&gt;
+ &lt;html:html&gt;
+ &lt;html:head&gt;
+ &lt;html:title&gt;A Look Into HTML6&lt;/html:title&gt;
+ &lt;/html:head&gt;
+ &lt;html:body&gt;
+ &lt;html:a href="http://siteurl"&gt;Go to siteurl.com!&lt;/html:a&gt;
+ &lt;/html:body&gt;
+ &lt;/html:html&gt;</pre>
+<p>8. &lt;html：button&gt; 和 &lt;button&gt; 及 &lt;input type=&#8221;button&#8221;&gt; 一样。</p>
+<pre>&lt;!DOCTYPE html&gt;
+ &lt;html:html&gt;
+ &lt;html:head&gt;
+ &lt;html:title&gt;A Look Into HTML6&lt;/html:title&gt;
+ &lt;/html:head&gt;
+ &lt;html:body&gt;
+ &lt;html:button&gt;Click Here&lt;/html:button&gt;
+ &lt;/html:body&gt;
+ &lt;/html:html&gt;</pre>
+<p>9. &lt;html:media&gt; 涵盖 &lt;img&gt;, &lt;video&gt;, &lt;embed&gt; 等标签的所有功能。&lt;html:media&gt; 的好处是你不用根据不同的媒体文件类型使用不同的标签，媒体的类型由浏览器从文件内容（类型属性，扩展名，和MIME type）中来判断。</p>
+<pre>&lt;!DOCTYPE html&gt;
+ &lt;html:html&gt;
+ &lt;html:head&gt;
+ &lt;html:title&gt;A Look Into HTML6&lt;/html:title&gt;
+ &lt;/html:head&gt;
+ &lt;html:body&gt;
+ &lt;!-- Image would come here --&gt;
+ &lt;html:media src="img1/logo.jpg" type="image"&gt;
+ &lt;!-- Video doesn't need a type --&gt;
+ &lt;html:media src="videos/slide.mov"&gt;
+ &lt;/html:body&gt;
+ &lt;/html:html&gt;</pre>
+<h3>标签类型(Tag types)概述</h3>
+<p>和 HTML5 一样， HTML6 也有两种标签类型：单标签（single tag) 和双标签（double tag）</p>
+<pre>&lt;html:meta type="author" content="single tag"&gt;
+ &lt;html:meta type="author" content="double tag" /&gt;</pre>
+<p>单标签不需要结束符&#8217;/&#8217;</p>
+<h3>结语</h3>
+<p>HTML6 规范还未发布，本文原作者 <a href="http://html6spec.com/">Oscar Godson</a> 只是为我们提供了一个对 HTML6 规范的展望，或者说他希望 HTML6 能够支持的一些新特性。</p>
+<p>原文链接：<a href="http://java.dzone.com/articles/look-html6-what-it-and-what">A Look Into HTML6 &#8211; What Is It, and What Does it Have to Offer?</a>
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-9666" data-post-type="none" ><small class="wp_rp_publish_date">2013年05月22日</small> <a href="http://coolshell.cn/articles/9666.html" class="wp_rp_title">浏览器的渲染原理简介</a></li><li data-position="1" data-poid="in-6840" data-post-type="none" ><small class="wp_rp_publish_date">2012年03月19日</small> <a href="http://coolshell.cn/articles/6840.html" class="wp_rp_title">CSS 布局:40个教程、技巧、例子和最佳实践</a></li><li data-position="2" data-poid="in-5537" data-post-type="none" ><small class="wp_rp_publish_date">2011年11月24日</small> <a href="http://coolshell.cn/articles/5537.html" class="wp_rp_title">一些文章资源和趣闻</a></li><li data-position="3" data-poid="in-5224" data-post-type="none" ><small class="wp_rp_publish_date">2011年09月20日</small> <a href="http://coolshell.cn/articles/5224.html" class="wp_rp_title">一些文章和各种资源</a></li><li data-position="4" data-poid="in-4795" data-post-type="none" ><small class="wp_rp_publish_date">2011年06月08日</small> <a href="http://coolshell.cn/articles/4795.html" class="wp_rp_title">开源中最好的Web开发的资源</a></li><li data-position="5" data-poid="in-3903" data-post-type="none" ><small class="wp_rp_publish_date">2011年03月04日</small> <a href="http://coolshell.cn/articles/3903.html" class="wp_rp_title">一些有意思的贴子和工具</a></li><li data-position="6" data-poid="in-3684" data-post-type="none" ><small class="wp_rp_publish_date">2011年02月16日</small> <a href="http://coolshell.cn/articles/3684.html" class="wp_rp_title">Web开发人员速查卡</a></li><li data-position="7" data-poid="in-3013" data-post-type="none" ><small class="wp_rp_publish_date">2010年09月28日</small> <a href="http://coolshell.cn/articles/3013.html" class="wp_rp_title">一些非常有意思的杂项资源</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/12206.html/feed</wfw:commentRss>
+		<slash:comments>31</slash:comments>
+		</item>
+		<item>
+		<title>Google Inbox如何跨平台重用代码？</title>
+		<link>http://coolshell.cn/articles/12136.html</link>
+		<comments>http://coolshell.cn/articles/12136.html#comments</comments>
+		<pubDate>Wed, 26 Nov 2014 00:03:17 +0000</pubDate>
+		<dc:creator><![CDATA[jnj]]></dc:creator>
+				<category><![CDATA[技术读物]]></category>
+		<category><![CDATA[编程工具]]></category>
+		<category><![CDATA[Android]]></category>
+		<category><![CDATA[Google]]></category>
+		<category><![CDATA[iOS]]></category>
+		<category><![CDATA[Web]]></category>
+		<category><![CDATA[移动应用]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=12136</guid>
+		<description><![CDATA[原文链接《How Google Inbox shares 70% of its code across And [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p>原文链接《<a href="http://arstechnica.com/information-technology/2014/11/how-google-inbox-shares-70-of-its-code-across-android-ios-and-the-web" target="_blank">How Google Inbox shares 70% of its code across Android, iOS, and the Web</a>》</p>
+<p><a href="http://coolshell.cn//wp-content/uploads/2014/11/inbox2-640x264.jpg"><img class="size-medium wp-image-12137 alignright" src="http://coolshell.cn//wp-content/uploads/2014/11/inbox2-640x264-300x123.jpg" alt="inbox2-640x264" width="300" height="123" /></a></p>
+<p>开发一个移动应用在当下并不是一件容易的事情。如果想要获得最多的用户，你的应用通常需要覆盖 iOS, Android, 和 Web 三大平台。这就意味着同一个应用需要开发三个版本，使用 Objective-C 或者 Swift 开发 iOS 版本，使用 Java 开发 Android 版本，使用 JavaScript/CSS/HTML5 开发 Web 版本。工作量增大的同时也意味着有更多的 bug 需要修复。</p>
+<p>这个问题也是 Google 在开发 Google Inbox 时致力要解决的。在最近发布的这款应用中，Google 使用了一些工具实现了70%的代码跨平台复用。</p>
+<p>Google Inbox 覆盖 iOS, Android, Web 三个平台，它们使用的是同一个后台代码逻辑，只是前端的用户体验和平台相关特性的实现有所不同。Google 自主开发了一套辅助工具将 Android 版本的 Java 代码逻辑编译为 Objective-C (针对 iOS 平台) 和 JavaScript (针对 Web 浏览器)。 Java 到 JavaScript 的编译由 Google Web Toolkit SDK 完成，Java 到 Objective-C 的编译则由 J2ObjC （<a href="j2objc.org">j2objc.org</a>）来完成。</p>
+<p>J2ObjC 是一个开源项目，由 Google 在2013年发布。Google Sheets (Google Docs 中的电子表格部分) 也使用了 J2ObjC，而 Google Inbox 则是目前使用 J2Objc 最多的 Google 项目。</p>
+<p>Google Inbox 复用的代码逻辑包括：对话 (conversations)，提醒 (reminders)，联系人 (contacts)。还有网络相关功能和离线同步。这些代码逻辑的复用节省了大量的时间和成本。</p>
+<p>在产品设计时，Google 将这些可复用功能划分为抽象的逻辑概念，比如：提醒的逻辑放在 &#8220;reminder.java&#8221; 中，可以被 Android UI 调用。对 iOS 版本而言，J2ObjC 将 &#8220;reminder.java&#8221; 编译成 Objective-C 代码，再由 iOS UI 调用。</p>
+<p>Google 没有跨平台编译 UI 部分的代码，因为不同平台的UI特性各有不同，盲目统一会导致非常糟糕的用户体验。代码复用只是针对可以共享的后台逻辑，前端的UI实现是完全原生 (native) 的。这与 Xamarin (一个基于 Microsoft C# 的跨平台移动开发工具) 提出的概念类似。</p>
+<p>跨平台代码复用通常会带来一些性能上的问题。Garrick Toubassi，Engineering Director 和 Google Inbox 项目组成员，对此表示： “性能上的影响如果有的话，也可以说是微不足道的。我们做过大量的性能测试。因为没有加入额外的中间层来处理跨平台兼容性，所有代码最后都是平台原生代码。J2ObjC 编译生成的目标代码和 Java 源代码拥有大致相同的对象数量和对象图谱复杂度 (object graph complexity) ”。</p>
+<p>Google 使用的整套方法解决了跨平台移动开发中的一个很重要的问题，同时也推进了安卓先行 (Android-first) 的移动开发策略。</p>
+<p>更多 Google Inbox 文章请猛戳 <a href="http://gmailblog.blogspot.com.au/2014/11/going-under-hood-of-inbox.html">Gmail 官方博客</a>。
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-12225" data-post-type="none" ><small class="wp_rp_publish_date">2014年12月15日</small> <a href="http://coolshell.cn/articles/12225.html" class="wp_rp_title">DHH 谈混合移动应用开发</a></li><li data-position="1" data-poid="in-17066" data-post-type="none" ><small class="wp_rp_publish_date">2015年04月14日</small> <a href="http://coolshell.cn/articles/17066.html" class="wp_rp_title">关于移动端的钓鱼式攻击</a></li><li data-position="2" data-poid="in-5815" data-post-type="none" ><small class="wp_rp_publish_date">2011年11月15日</small> <a href="http://coolshell.cn/articles/5815.html" class="wp_rp_title">来信， 创业 和 移动互联网</a></li><li data-position="3" data-poid="in-5224" data-post-type="none" ><small class="wp_rp_publish_date">2011年09月20日</small> <a href="http://coolshell.cn/articles/5224.html" class="wp_rp_title">一些文章和各种资源</a></li><li data-position="4" data-poid="in-3549" data-post-type="none" ><small class="wp_rp_publish_date">2011年01月24日</small> <a href="http://coolshell.cn/articles/3549.html" class="wp_rp_title">Android将允许纯C/C++开发应用</a></li><li data-position="5" data-poid="in-2608" data-post-type="none" ><small class="wp_rp_publish_date">2010年07月13日</small> <a href="http://coolshell.cn/articles/2608.html" class="wp_rp_title">Google App Inventor </a></li><li data-position="6" data-poid="in-1152" data-post-type="none" ><small class="wp_rp_publish_date">2009年07月13日</small> <a href="http://coolshell.cn/articles/1152.html" class="wp_rp_title">关于 Chrome OS 的一些推论</a></li><li data-position="7" data-poid="in-12206" data-post-type="none" ><small class="wp_rp_publish_date">2014年12月06日</small> <a href="http://coolshell.cn/articles/12206.html" class="wp_rp_title">HTML6 展望</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/12136.html/feed</wfw:commentRss>
+		<slash:comments>27</slash:comments>
+		</item>
+		<item>
+		<title>vfork 挂掉的一个问题</title>
+		<link>http://coolshell.cn/articles/12103.html</link>
+		<comments>http://coolshell.cn/articles/12103.html#comments</comments>
+		<pubDate>Thu, 20 Nov 2014 16:48:27 +0000</pubDate>
+		<dc:creator><![CDATA[陈皓]]></dc:creator>
+				<category><![CDATA[C/C++语言]]></category>
+		<category><![CDATA[Unix/Linux]]></category>
+		<category><![CDATA[操作系统]]></category>
+		<category><![CDATA[fork]]></category>
+		<category><![CDATA[Linux]]></category>
+		<category><![CDATA[Unix]]></category>
+		<category><![CDATA[vfork]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=12103</guid>
+		<description><![CDATA[在知乎上，有个人问了这样的一个问题——为什么vfork的子进程里用return，整个程序会挂掉，而且exit( [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p><img class="alignright wp-image-12105" src="http://coolshell.cn//wp-content/uploads/2014/11/tux-fork-298x300.gif" alt="tux-fork" width="199" height="200" />在知乎上，有个人问了这样的<a href="http://www.zhihu.com/question/26591968" target="_blank">一个问题</a>——为什么vfork的子进程里用return，整个程序会挂掉，而且exit()不会？并给出了如下的代码，下面的代码一运行就挂掉了，但如果把子进程的return改成exit(0)就没事。</p>
+<p>我受邀后本来不想回答这个问题的，因为这个问题明显就是RTFM的事，后来，发现这个问题放在那里好长时间，而挂在下面的几个答案又跑偏得比较严重，我觉得可能有些朋友看到那样的答案会被误导，所以就上去回答了一下这个问题。</p>
+<p>下面我把问题和我的回答发布在这里，也供更多的人查看。</p>
+<pre class="brush: cpp; title: ; notranslate">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+int main(void) {
+    int var;
+    var = 88;
+    if ((pid = vfork()) &lt; 0) {
+        printf(&quot;vfork error&quot;);
+        exit(-1);
+    } else if (pid == 0) { /* 子进程 */
+        var++;
+        return 0;
+    }
+    printf(&quot;pid=%d, glob=%d, var=%d\n&quot;, getpid(), glob, var);
+    return 0;
+}
+</pre>
+<p><span id="more-12103"></span></p>
+<h4><b>基础知识</b></h4>
+<p>首先说一下fork和vfork的差别：</p>
+<ul>
+<li>fork 是 创建一个子进程，并把父进程的内存数据copy到子进程中。</li>
+<li>vfork是 创建一个子进程，并和父进程的内存数据share一起用。</li>
+</ul>
+<p>这两个的差别是，一个是copy，一个是share。（关于fork，可以参看酷壳之前的《<a title="一个fork的面试题" href="http://coolshell.cn/articles/7965.html" target="_blank">一道fork的面试题</a>》）</p>
+<p>你 man vfork 一下，你可以看到，vfork是这样的工作的，</p>
+<p style="padding-left: 30px;">1）保证子进程先执行。<br />
+2）当子进程调用exit()或exec()后，父进程往下执行。</p>
+<p>那么，为什么要干出一个vfork这个玩意？ 原因在man page也讲得很清楚了：</p>
+<blockquote><p><strong>Historic Description</strong></p>
+<p>Under Linux, fork(2) is implemented using copy-on-write pages, so the only penalty incurred by fork(2) is the time and memory required to duplicate the parent’s page tables, and to create a unique task structure for the child. <b>However, in the bad old days a fork(2) would require making </b><b>a complete copy of the caller’s data space, often needlessly, since usually immediately afterwards an exec(3) is done. Thus, for greater efficiency, BSD introduced the vfork() system call, which did not fully copy the address space of the parent process, but borrowed the parent’s mem</b><b>ory and thread of control until a call to execve(2) or an exit occurred.</b> The parent process was suspended while the child was using its resources. The use of vfork() was tricky: for example, not modifying data in the parent process depended on knowing which variables are held in a register.</p></blockquote>
+<p>意思是这样的—— <b>起初只有fork，但是很多程序在fork一个子进程后就exec一个外部程序，于是fork需要copy父进程的数据这个动作就变得毫无意了，而且这样干还很重</b>（注：后来，fork做了优化，详见本文后面）<b>，所以，BSD搞出了个父子进程共享的 vfork，这样成本比较低。因此，vfork本就是为了exec而生。</b></p>
+<h4><b>为什么return会挂掉，exit()不会？</b></h4>
+<p>从上面我们知道，<b>结束子进程的调用是exit()而不是return，如果你在vfork中return了，那么，这就意味main()函数return了，注意因为函数栈父子进程共享，所以整个程序的栈就跪了。</b></p>
+<p>如果你在子进程中return，那么基本是下面的过程：</p>
+<p style="padding-left: 30px;"><b>1）子进程的main() 函数 return了，于是程序的函数栈发生了变化。</b></p>
+<p style="padding-left: 30px;"><b>2）而main()函数return后，通常会调用 exit()或相似的函数</b>（如：_exit()，exitgroup()）</p>
+<p style="padding-left: 30px;"><b>3）这时，父进程收到子进程exit()，开始从vfork返回，但是尼玛，老子的栈都被你子进程给return干废掉了，你让我怎么执行？</b>（注：栈会返回一个诡异一个栈地址，对于某些内核版本的实现，直接报“栈错误”就给跪了，然而，对于某些内核版本的实现，于是有可能会再次调用main()，于是进入了一个无限循环的结果，直到vfork 调用返回 error）</p>
+<p>好了，现在再回到 return 和 exit，return会释放局部变量，并弹栈，回到上级函数执行。exit直接退掉。如果你用c++ 你就知道，return会调用局部对象的析构函数，exit不会。（注：exit不是系统调用，是glibc对系统调用 _exit()或_exitgroup()的封装）</p>
+<p>可见，<b>子进程调用exit() 没有修改函数栈，所以，父进程得以顺利执行</b>。</p>
+<h4>关于fork的优化</h4>
+<p>很明显，fork太重，而vfork又太危险，所以，就有人开始优化fork这个系统调用。优化的技术用到了著名的<b>写时拷贝（COW）</b>。</p>
+<p>也就是说，<strong>对于fork后并不是马上拷贝内存，而是只有你在需要改变的时候，才会从父进程中拷贝到子进程中，这样fork后立马执行exec的成本就非常小了</strong>。所以，Linux的Man Page中并不鼓励使用vfork() ——</p>
+<blockquote><p>“ It is rather unfortunate that Linux revived this specter from the past. The BSD man page states: &#8220;This system call will be eliminated when proper system sharing mechanisms are implemented. Users should not depend on the memory sharing semantics of vfork() as it will, in that case, be made synonymous to fork(2).&#8221;”</p></blockquote>
+<p>于是，从BSD4.4开始，他们让vfork和fork变成一样的了</p>
+<p>但在后来，NetBSD 1.3 又把传统的vfork给捡了回来，说是vfork的性能在 Pentium Pro 200MHz 的机器（这机器好古董啊）上有可以提高几秒钟的性能。详情见——“<a class=" wrap external" href="http://www.netbsd.org/docs/kernel/vfork.html" target="_blank" rel="nofollow noreferrer">NetBSD Documentation: Why implement traditional vfork()<i class="icon-external"></i></a>”</p>
+<p>今天的Linux下，fork和vfork还是各是各的，不过，还是建议你不要用vfork，除非你非常关注性能。</p>
+<p>（全文完）
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-11847" data-post-type="none" ><small class="wp_rp_publish_date">2014年08月06日</small> <a href="http://coolshell.cn/articles/11847.html" class="wp_rp_title">谜题的答案和活动的心得体会</a></li><li data-position="1" data-poid="in-9104" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月20日</small> <a href="http://coolshell.cn/articles/9104.html" class="wp_rp_title">sed 简明教程</a></li><li data-position="2" data-poid="in-9070" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月17日</small> <a href="http://coolshell.cn/articles/9070.html" class="wp_rp_title">AWK 简明教程</a></li><li data-position="3" data-poid="in-8883" data-post-type="none" ><small class="wp_rp_publish_date">2013年01月09日</small> <a href="http://coolshell.cn/articles/8883.html" class="wp_rp_title">应该知道的Linux技巧</a></li><li data-position="4" data-poid="in-8619" data-post-type="none" ><small class="wp_rp_publish_date">2012年11月23日</small> <a href="http://coolshell.cn/articles/8619.html" class="wp_rp_title">你可能不知道的Shell</a></li><li data-position="5" data-poid="in-8088" data-post-type="none" ><small class="wp_rp_publish_date">2012年08月16日</small> <a href="http://coolshell.cn/articles/8088.html" class="wp_rp_title">对技术的态度</a></li><li data-position="6" data-poid="in-7965" data-post-type="none" ><small class="wp_rp_publish_date">2012年08月01日</small> <a href="http://coolshell.cn/articles/7965.html" class="wp_rp_title">一个fork的面试题</a></li><li data-position="7" data-poid="in-7829" data-post-type="none" ><small class="wp_rp_publish_date">2012年07月11日</small> <a href="http://coolshell.cn/articles/7829.html" class="wp_rp_title">28个Unix/Linux的命令行神器</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/12103.html/feed</wfw:commentRss>
+		<slash:comments>32</slash:comments>
+		</item>
+		<item>
+		<title>Leetcode 编程训练</title>
+		<link>http://coolshell.cn/articles/12052.html</link>
+		<comments>http://coolshell.cn/articles/12052.html#comments</comments>
+		<pubDate>Thu, 23 Oct 2014 02:51:54 +0000</pubDate>
+		<dc:creator><![CDATA[陈皓]]></dc:creator>
+				<category><![CDATA[C/C++语言]]></category>
+		<category><![CDATA[杂项资源]]></category>
+		<category><![CDATA[编程语言]]></category>
+		<category><![CDATA[Algorithm]]></category>
+		<category><![CDATA[C++]]></category>
+		<category><![CDATA[Leetcode]]></category>
+		<category><![CDATA[Programmer]]></category>
+		<category><![CDATA[Programming]]></category>
+		<category><![CDATA[程序员]]></category>
+		<category><![CDATA[算法]]></category>
+		<category><![CDATA[面试]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=12052</guid>
+		<description><![CDATA[Leetcode这个网站上的题都是一些经典的公司用来面试应聘者的面试题，很多人通过刷这些题来应聘一些喜欢面试算 [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p><img class="alignright wp-image-12054 size-full" src="http://coolshell.cn//wp-content/uploads/2014/10/LeetCodeLogo-1.png" alt="LeetCodeLogo (1)" width="121" height="100" />Leetcode这个网站上的题都是一些经典的公司用来面试应聘者的面试题，很多人通过刷这些题来应聘一些喜欢面试算法的公司，比如：Google、微软、Facebook、Amazon之类的这些公司，基本上是应试教育的功利主义。</p>
+<p>我做这些题目的不是为了要去应聘这些公司，而是为了锻炼一下自己的算法和编程能力。因为我开始工作的时候基本没有这样的训练算法和编程的网站，除了大学里的“算法和数据结构”里的好些最基础最基础的知识，基本上没有什么训练。所以，当我看到有人在做这些题的时候，我也蠢蠢欲动地想去刷一下。</p>
+<p>于是，我花了3-4个月的业余时间，我把<a href="https://oj.leetcode.com/problems/" target="_blank">Leetcode的154道题</a>全部做完了。（这也是最近我没有太多的时间来写博客的原因，你可以看到我之前<a title="谜题的答案和活动的心得体会" href="http://coolshell.cn/articles/11847.html" target="_blank">做的那个活动</a>中有几个算法题来自于Leetcode）有人说我时间太多了，这里声明一下，我基本上都是利用了晚上10点以后的时间来做这些题的。</p>
+<p>LeetCode的题大致分成两类：</p>
+<p style="padding-left: 30px;"><strong>1）基础算法的知识</strong>。这些题里面有大量的算法题，解这些题都是有套路的，不是用递归（深度优先DFS，广度优先BFS），就是要用动态规划（Dynamic Programming），或是拆半查找（Binary Search），或是回溯（Back tracing），或是分治法（Divide and Conquer），还有大量的对树，数组、链表、字符串和hash表的操作。<strong>通过做这些题能让你对这些最基础的算法的思路有非常扎实的了解和训练</strong>。对我而言，Dynamic Programming 是我的短板，尤其是一些比较复杂的问题，在推导递推公式上总是有思维的缺陷（数学是我的硬伤），通过做了这些题后，我能感到我在DP的思路上有了很大的收获。</p>
+<p style="padding-left: 30px;"><strong>2）编程题</strong>。比如：atoi，strstr，add two num，括号匹配，字符串乘法，通配符匹配，文件路径简化，Text Justification，反转单词等等，这些题的Edge Case, Corner Case有很多。这些题需要你想清楚了再干，只要你稍有疏忽，就会有几个case让你痛不欲生，而且一不小心就会让你的代码会写得又臭又长，无法阅读。<strong>通过做这些题，可以非常好的训练你对各种情况的考虑，以及你对程序代码组织的掌控（其实就是其中的状态变量）。</strong>还记得我在《<a title="函数式编程" href="http://coolshell.cn/articles/10822.html" target="_blank">函数式编程</a>》中说的，程序中的状态是你程序变得复杂难维护的直接原因。</p>
+<p>我觉得每个程序员都应该花时间和精力做这些题，因为你会从这些题中得到很大的收益。做完这些题后你一定会明白下面几个道理：</p>
+<p><span id="more-12052"></span></p>
+<p style="padding-left: 30px;"><strong>1）想清楚了再干</strong>。这个观点我以前就在《<a title="多些时间能少写些代码" href="http://coolshell.cn/articles/5686.html" target="_blank">多些时间可以少些代码</a>》说过。如果你拿到题就上去直接写代码的话，你一定会被各种case打回来了。然后呢，你一着急，你就会进入那种我在《<a title="开发团队的效率" href="http://coolshell.cn/articles/11656.html" target="_blank">开发团队的效率</a>》中说的那种毫无效率case by case的开发模式，而你也进入了“平庸模式”。于是你就会出现下图那样的情况。</p>
+<div id="attachment_12053" style="width: 450px" class="wp-caption aligncenter"><img class="size-full wp-image-12053" src="http://coolshell.cn//wp-content/uploads/2014/10/bug_fixing.gif" alt="Case-by-Case Developement" width="440" height="231" /><p class="wp-caption-text">Case-by-Case Development</p></div>
+<p style="padding-left: 30px;"><strong>2) 编程是脑力劳动，急不得</strong>。这个事情在这做这些题的时候你就会发现，要么是脑子转不过来了，要么就是明明就差一点了，但程序怎么都调不对。如果你越着急的话，你就会发现你会离目标越远，而花的时间也会更多。另外，你会发现这些题基本上都是50行代码内就可以搞定的，但是为了这50行以内的代码，你要花好多时间和精力。coding  50行代码在我们的日常工作中分分钟就完成，而Leetcode里的50行代码却没那么简单，也许，用这个你就可以区别什么是码农，什么是程序员了。</p>
+<p style="padding-left: 30px;"><strong>3）加班要不得。</strong>因为我总是在晚上10点以后做题，所以，基本上都是在加班状态中工作。这种状态过上两三天，你就会发现，整个大脑已经不转了，而且不但不转，还会犯很多低级错误，很多事情都想不清楚，一个晚上都在和程序的状态控制做搏斗，代码写得越来越乱，越来越没条理。于是这种时候，我都会休息几天，不做题了，然后再做题的时候，就觉得非常地清楚。可见加班 是编程最致命的敌人！</p>
+<p>我把我的C++代码放到了Github上，大家也帮我review一下，看看有没有可以改善的。</p>
+<p style="text-align: center;"><strong><a href="https://github.com/haoel/leetcode" target="_blank">https://github.com/haoel/leetcode</a></strong></p>
+<p>好了，不多说了，<strong>我希望大家有时间都去练练LeetCode，无论是找工作还是对你的编程能力会有非常大的提高</strong>。</p>
+<p>&nbsp;</p>
+<p>（全文完）
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-8138" data-post-type="none" ><small class="wp_rp_publish_date">2012年08月22日</small> <a href="http://coolshell.cn/articles/8138.html" class="wp_rp_title">为什么我反对纯算法面试题</a></li><li data-position="1" data-poid="in-9543" data-post-type="none" ><small class="wp_rp_publish_date">2013年04月29日</small> <a href="http://coolshell.cn/articles/9543.html" class="wp_rp_title">“C++的数组不支持多态”？</a></li><li data-position="2" data-poid="in-8790" data-post-type="none" ><small class="wp_rp_publish_date">2012年12月28日</small> <a href="http://coolshell.cn/articles/8790.html" class="wp_rp_title">程序算法与人生选择</a></li><li data-position="3" data-poid="in-8387" data-post-type="none" ><small class="wp_rp_publish_date">2012年10月14日</small> <a href="http://coolshell.cn/articles/8387.html" class="wp_rp_title">Bret Victor &#8211; Learnable Programming</a></li><li data-position="4" data-poid="in-8088" data-post-type="none" ><small class="wp_rp_publish_date">2012年08月16日</small> <a href="http://coolshell.cn/articles/8088.html" class="wp_rp_title">对技术的态度</a></li><li data-position="5" data-poid="in-6010" data-post-type="none" ><small class="wp_rp_publish_date">2011年11月29日</small> <a href="http://coolshell.cn/articles/6010.html" class="wp_rp_title">一些有意思的算法代码</a></li><li data-position="6" data-poid="in-5388" data-post-type="none" ><small class="wp_rp_publish_date">2011年08月26日</small> <a href="http://coolshell.cn/articles/5388.html" class="wp_rp_title">C语言中史上最愚蠢的Bug</a></li><li data-position="7" data-poid="in-4990" data-post-type="none" ><small class="wp_rp_publish_date">2011年07月18日</small> <a href="http://coolshell.cn/articles/4990.html" class="wp_rp_title">程序员技术练级攻略</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/12052.html/feed</wfw:commentRss>
+		<slash:comments>68</slash:comments>
+		</item>
+		<item>
+		<title>State Threads 回调终结者</title>
+		<link>http://coolshell.cn/articles/12012.html</link>
+		<comments>http://coolshell.cn/articles/12012.html#comments</comments>
+		<pubDate>Sun, 12 Oct 2014 14:48:57 +0000</pubDate>
+		<dc:creator><![CDATA[Leo]]></dc:creator>
+				<category><![CDATA[C/C++语言]]></category>
+		<category><![CDATA[Unix/Linux]]></category>
+		<category><![CDATA[Web开发]]></category>
+		<category><![CDATA[程序设计]]></category>
+		<category><![CDATA[C++]]></category>
+		<category><![CDATA[coroutine]]></category>
+		<category><![CDATA[EDSM]]></category>
+		<category><![CDATA[IA]]></category>
+		<category><![CDATA[process]]></category>
+		<category><![CDATA[thread]]></category>
+		<category><![CDATA[Web]]></category>
+		<category><![CDATA[协程]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=12012</guid>
+		<description><![CDATA[（感谢网友 @我的上铺叫路遥 投稿） 上回写了篇《一个“蝇量级”C语言协程库》，推荐了一下Protothrea [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p><strong>（感谢网友 </strong><a href="http://weibo.com/fullofbull" target="_blank"><strong>@我的上铺叫路遥</strong></a><strong> 投稿）</strong></p>
+<p>上回写了篇<a title="一个“蝇量级” C 语言协程库" href="http://coolshell.cn/articles/10975.html" target="_blank">《一个“蝇量级”C语言协程库》</a>，推荐了一下<a title="Protothreads" href="http://dunkels.com/adam/pt/" target="_blank">Protothreads</a>，通过coroutine模拟了用户级别的multi-threading模型，虽然本身足够“轻”，杜绝了系统开销，但这个库本身应用场合主要是内存限制的嵌入式领域，提供原生态组件太少，使用限制太多，比如依赖其它调用产生阻塞等。</p>
+<p>这回又替大家在开源界淘了个宝，推荐一个轻量级网络应用框架<strong>State Threads</strong>（以下简称ST），总共也就3000行C代码，跟Protothreads不同在于ST针对的就是<strong>高性能可扩展服务器</strong>领域（值得一提的是Protothreads官网<a title="参考链接" href="http://dunkels.com/adam/pt/links.html" target="_blank">参考链接</a>上第一条就是ST的官网）。在其<a title="FAQ" href="http://state-threads.sourceforge.net/docs/faq.html" target="_blank">FAQ</a>页面上一句引用&#8221;Perfection is achieved not when there is nothing more to add, but rather when there is nothing more to take away.&#8221;可以视为开发人员对ST源码质量的自信。</p>
+<h4>历史渊源</h4>
+<p>首先介绍一下这个库的历史渊源，从代码贡献者来看，ST不是个人作品，而是有着雄厚的商业支持和应用背景，比如服务器领域，在<a href="http://state-threads.sourceforge.net/news.html" target="_blank">这里</a>你可以看到ST曾作为Apache的多核应用模块发布。其诞生最初是由网景（Netscape）公司的MSPR（Netscape Portable Runtime library）项目中剥离出来，后由SGI（Silicon Graphic Inc）还有Yahoo!公司（前者是主力）开发维护的独立线程库。历史版本方面，作为<a title="SourceForge" href="http://sourceforge.net/projects/state-threads/files/" target="_blank">SourceForge</a>上开源项目，由2001年发布v1.0以来一直到2009年v1.9稳定版后未再变动。在平台移植方面，从Makefile的配置选项中可知ST支持多种Unix-like平台，还有专门针对Win32的源码改写。源码例子中，提供了web server、proxy以及dns三种编程实例供参考。可以说代码质量应该是相当的稳定和可靠的。</p>
+<p><span id="more-12012"></span></p>
+<p>至于许可证方面，有必要略作说明。出于历史原因，网景最初发布时选择了MPL1.1许可证，而后SGI在维护中又混进了GPLv2许可证，照理说这两种许可证是互不兼容的（MPL1.1后续版本是GPL兼容的），也就是说用双许可证打包发布理论上是非法无效的，见GNU官网上<a title="GPL兼容" href="http://www.gnu.org/licenses/license-list.html#MPL" target="_blank">MPL兼容性</a>一节。但这里有值得商榷的地方，因为文中又提及，根据MPL1.1中某条款第13节，如果整段或部分代码允许采用另一许可证作为备用（alternate）选择，比如GPL及其兼容，那么整个库的许可证就可视为GPL兼容的。如此一来所谓GPL兼容性一般解释为你不能在GPLv2的代码中混入MPL1.1，而不是说你不能在MPL1.1代码中混入GPLv2，也就是说GPLv2在MPL1.1之后是可以接受的，事实上SGI就采用了后面的做法，尚未引起版权上的纠纷。为此我还考证了一下FAQ上<a title="license" href="http://state-threads.sourceforge.net/docs/faq.html" target="_blank">license</a>一节的说法，说ST既可以在MPL和GPL之间选择一种，也可以继续用双许可证，还补了一句在non-free项目使用上也没有限制，但对ST源码所做改动必须对用户可见。在源码文件中的SGI的附加声明还解释了将ST转为GPL代码的做法，就是可以删除前面MPL的声明，否则后续用户仍可以在两者之间二选一。个人觉得既然SGI都这样发话了，那么可解释为反之删除GPL的声明继续采用MPL也是可以接受的，如果你对双许可证承诺仍不放心的话。</p>
+<h4>基于事件驱动状态机（EDSM）</h4>
+<p>好了，下面该进入技术性话题了。前面说了ST的目标是<strong>高性能可扩展</strong>，其技术特征一言以蔽之就是</p>
+<blockquote><p><strong>&#8220;It combines the simplicity of the multi-threaded programming paradigm, in which one thread supports each simultaneous connection, with the performance and scalability of an event-driven state machine (EDSM) architecture.&#8221;</strong></p></blockquote>
+<p>我们先来纵向比较ST与传统的EDSM区别，再来横向比较与其它线程库（比如Pthread）的区别（注：以下图片全部来自<a title="ST FAQ" href="http://state-threads.sourceforge.net/docs/faq.html" target="_blank">State Threads Library FAQ</a>）。</p>
+<p>传统EDSM最常见的方式就是I/O事件的<strong>异步回调</strong>。基本上都会有一个叫做dispatcher的单线程主循环（又叫event loop），用户通过向dispatcher注册回调函数（又叫event handler）来实现异步通知，从而不必在原地空耗资源干等，在dispatcher主循环中通过select()/poll()系统调用来等待各种I/O事件的发生，当内核检测到事件触发并且数据可达或可用时，select()/poll()会返回从而使dispatcher调用相应的回调函数来对处理用户的请求。所以异步回调与其说是通知，不如说用委托更恰当。</p>
+<p>整个过程都是单线程的。<strong>这种处理本质上就是将一堆互不相交（disjoint）的回调实现同步控制，就像串联在一个顺序链表上。</strong>见图1，黑色的双箭头表示I/O事件复用，回调是个筐，里面装着对各种请求的处理（当然不是每个请求都有回调，一个请求也可以对应不同的回调），每个回调被串联起来由dispatcher激活。这里请求等价于thread的概念（不是操作系统的线程），只不过“上下文切换”（context switch）发生在每个回调结束之时（假设不同请求对应不同回调），注册下一个回调以待事件触发时恢复其它请求的处理。至于dispatcher的执行状态（execute state）可作为回调函数的参数保存和传递。</p>
+<p><img class="aligncenter" src="http://coolshell.cn//wp-content/uploads/2014/10/edsm.gif" alt="EDSM" /></p>
+<p>异步回调的缺陷在于<strong>难以实现和扩展</strong>，虽然已经有libevent这样的通用库，以及其它actor/reacotor的设计模式及其框架，但正如Dean Gaudet（Apache开发者）所说：“其内在的复杂性——<strong>将线性思维分解成一堆回调的负担</strong>（breaking up linear thought into a bucketload of callbacks）——仍然存在”。从上图可见，<strong>回调之间请求例程不是连续的，比如回调之间的切换会打断部分请求，又比如有新的请求需要重新注册。</strong></p>
+<p><strong>ST本质上仍然是基于EDSM模型，但旨在取代传统的异步回调方式。</strong>ST将请求抽象为thread概念以更接近自然编程模式（所谓的linear thought吧，就像操作系统的线程之间切换那样自然）。ST的调度器（scheduler）对于用户来说是透明的，不像dispatcher那种将执行状态（execute state）暴露给回调方式。每个thread的现场环境可以保存在栈上（一段连续的大小确定的内存空间），由C的运行环境管理。从图2看到，<strong>ST的threads可以并发地线性地处理I/O事件，模型比异步回调简单得多。</strong></p>
+<p><img class="aligncenter" src="http://coolshell.cn//wp-content/uploads/2014/10/st_edsm.gif" alt="State Threads" /></p>
+<p>这里稍微解释一下ST调度工作原理，ST运行环境维护了四种队列，分别是IOQ、RUNQ、SLEEPQ以及ZOMBIEQ，<strong>当每个thread处于不同队列中对应不同的状态（ST顾名思义所谓thread状态机）。</strong>比如polling请求的时候，当前thread就加入IOQ表示等待事件（如果有timeout同时会被放到SLEEPQ中），当事件触发时，thread就从IOQ（如果有timeout同时会从SLEEPQ）移除并转移到RUNQ等待被调度，成为当前的running thread，相当于操作系统的就绪队列，跟传统EDSM对应起来就是注册回调以及激活回调。再比如模拟同步控制wait/sleep/lock的时候，当前thread会被放入SLEEPQ，直到被唤醒或者超时再次进入RUNQ以待调度。</p>
+<p><strong>ST的调度具备性能与内存双重优点</strong>：在性能上，ST实现自己的setjmp/longjmp来模拟调度，无任何系统开销，并且context（就是jmp_buf）针对不同平台和架构用底层语言实现的，可移植性媲美libc。下面放一段代码解释一下调度实现：</p>
+<pre class="brush: cpp; title: ; notranslate">/*
+ * Switch away from the current thread context by saving its state 
+ * and calling the thread scheduler
+ */
+#define _ST_SWITCH_CONTEXT(_thread)       \
+    ST_BEGIN_MACRO                        \
+    if (!MD_SETJMP((_thread)-&gt;context)) { \
+      _st_vp_schedule();                  \
+    }                                     \
+    ST_END_MACRO
+
+/*
+ * Restore a thread context that was saved by _ST_SWITCH_CONTEXT 
+ * or initialized by _ST_INIT_CONTEXT
+ */
+#define _ST_RESTORE_CONTEXT(_thread)   \
+    ST_BEGIN_MACRO                     \
+    _ST_SET_CURRENT_THREAD(_thread);   \
+    MD_LONGJMP((_thread)-&gt;context, 1); \
+    ST_END_MACRO
+
+void _st_vp_schedule(void)
+{
+    _st_thread_t *thread;
+
+    if (_ST_RUNQ.next != &amp;_ST_RUNQ) {
+        /* Pull thread off of the run queue */
+        thread = _ST_THREAD_PTR(_ST_RUNQ.next);
+        _ST_DEL_RUNQ(thread);
+    } else {
+        /* If there are no threads to run, switch to the idle thread */
+        thread = _st_this_vp.idle_thread;
+    }
+    ST_ASSERT(thread-&gt;state == _ST_ST_RUNNABLE);
+
+    /* Resume the thread */
+    thread-&gt;state = _ST_ST_RUNNING;
+    _ST_RESTORE_CONTEXT(thread);
+}
+</pre>
+<p>如果你熟悉setjmp/longjmp的用法，你就知道当前thread在调用MD_SETJMP将现场上下文保存在jmp_buf中并返回返回0，然后自己调用_st_vp_schedule()将自己调度出去。调度器先从RUNQ上找，如果队列为空就找idle thread，这是在整个ST初始化时创建的一个特殊thread，然后将当前线程设为自己，再调用MD_LONGJMP切换到其上次调用MD_SETJMP的地方，从thread-&gt;context恢复现场并返回1，该thread就接着往下执行了。<strong>整个过程就同EDSM一样发生在操作系统单线程下，所以没有任何系统开销与阻塞。</strong></p>
+<p><strong>其实真正的阻塞是发生在等待I/O事件复用上，也就是select()/poll()，这是整个ST唯一的系统调用。</strong>ST当前的状态是，整个环境处于空闲状态，所有threads的请求处理都已经完成，也就是RUNQ为空。这时在_st_idle_thread_start维护了一个主循环（类似于event loop），主要负责三种任务：1.对IOQ所有thread进行I/O复用检测；2.对SLEEPQ进行超时检查；3.将idle thread调度出去，代码如下：</p>
+<pre class="brush: cpp; title: ; notranslate">
+void *_st_idle_thread_start(void *arg)
+{
+    _st_thread_t *me = _ST_CURRENT_THREAD();
+
+    while (_st_active_count &gt; 0) {
+        /* Idle vp till I/O is ready or the smallest timeout expired */
+        _ST_VP_IDLE();
+
+        /* Check sleep queue for expired threads */
+        _st_vp_check_clock();
+
+        me-&gt;state = _ST_ST_RUNNABLE;
+        _ST_SWITCH_CONTEXT(me);
+    }
+
+    /* No more threads */
+    exit(0);
+
+    /* NOTREACHED */
+    return NULL;
+}</pre>
+<p>这里的me就是idle thread，因为_st_idle_thread_start就是创建idle thread的启动点，每从上次_ST_SWITCH_CONTEXT()切换回来的时候，接着在_ST_VP_IDLE()里轮询I/O事件的发生，一旦检测到发生了别的thread事件或者SLEEPQ里面发生超时，再用_ST_SWITCH_CONTEXT()把自己切换出去，如果此时RUNQ中非空的话就切换到队列第一个thread。这里主循环是不会退出的。</p>
+<p>在内存方面，<strong>ST的执行状态作为局部变量保存在栈上，而不是像回调需要动态分配，</strong>用户可能分别这样使用thread模式和callback模式：</p>
+<pre class="brush: cpp; title: ; notranslate">/* thread land */
+int foo()
+{
+    int local1;
+    int local2;
+    do_some_io();
+}
+
+/* callback land */
+struct foo_data {
+    int local1;
+    int local2;
+};
+
+void foo_cb(void *arg)
+{
+    struct foo_data *locals = arg;
+    ...
+}
+
+void foo()
+{
+    struct foo_data *locals = malloc(sizeof(struct foo_data));
+    register(foo_cb, locals);
+}
+</pre>
+<h4>基于Mult-Threading范式</h4>
+<p>同样基于multi-threading编程范式，ST同其它线程库又有和有点呢？比如Posix Thread（以下简称PThread）是个通用的线程库，它是<strong>将用户级线程（thread）同内核执行对象（kernel execution entity，有些书又叫lightweight processes）做了1:1或m:n映射，</strong>从而实现multi-threading模式。<strong>而ST是单线程（n:1映射），它的thread实际上就是协程（coroutine）。</strong>通常的网络应用上，多线程范式绕不开操作系统，但在某些特定的服务器领域，线程间的共享资源会带来额外复杂度，锁、竞态、并发、文件句柄、全局变量、管道、信号等，面对这些Pthread的灵活性会大打折扣。<strong>而ST的调度是精确的，它只会在明确的I/O和同步函数调用点上发生上下文切换，这正是协程的特性，如此一来ST就不需要互斥保护了，进而也可以放心使用任何静态变量和不可重入库函数了</strong>（这在同样作为协程的Protothreads里是不允许的，因为那是stack-less的，无法保存上下文），极大的简化了编程和调试同时增加了性能。</p>
+<p>对于同样用户级线程如GNU Pth和MIT Phread比起来呢？有两点，一是ST的thread是<strong>无优先级的非抢占式调度</strong>，也就是说ST基于EDSM的，每个thread都是事件或数据驱动，迟早会把自己调度出去，而且调度点是明确的，并非按时间片来的，从而简化了thread管理；二是ST会<strong>忽略所有信号处理</strong>，在_st_io_init中会把sigact.sa_handler设为SIG_IGN，这样做是因为将thread资源最小化，避免了signal mask及其系统调用（在ucontext上是避免不了的）。但这并不意味着ST就不能处理信号，实际上ST建议将信号写入pipe的方式转化为普通I/O事件处理，示例详见<a title="signal handling" href="http://state-threads.sourceforge.net/docs/notes.html#signals" target="_blank">这里</a>。</p>
+<p>这里顺便说一句，<strong>C语言实现的协程据我所知只有三种方式</strong>：Protothread为代表利用switch-case语义跳转，以ST为代表不依赖libc的setjmp/longjmp上下文切换，以及依赖glibc的ucontext接口（<a title="云风的coroutine" href="https://github.com/cloudwu/coroutine" target="_blank">云风的coroutine</a>）。第一种最轻，但受限最大，第三种耗资源性能慢（陈皓注：glibc的ucontext接口的实现中有一个和信号有关的系统调用，所以会慢，估计在一些情况下会比pthread还慢），目前看来ST是最好使的。</p>
+<h4>基于多核环境</h4>
+<p>下面来聊聊ST在多核环境下的应用。服务器领域多核的优势在于实现了物理上真正的并发，所以如何充分利用系统优势也是线程库的一大难点。这对ST来说也许正是它的拿手好戏，前面提及ST曾作为Apache的多核引擎模块发布。这里要补充一下前面漏掉的ST的一个重要概念——<strong>虚拟处理器</strong>（virtual processor，简称vp），见图3，多个cpu通过内核的SMP模拟出多个“核”（core），一个core对应一个内核任务（kernel task），同时对应一个用户进程（process），一个process对应ST的一个vp，每个vp下就是ST的thread（是协程不是线程），结合前面所述，vp初始化先创建idle thread，然后根据I/O事件驱动其它threads，这就是ST的多核架构。</p>
+<p><img class="aligncenter" src="http://coolshell.cn//wp-content/uploads/2014/10/st_app.gif" alt="multi-core" /></p>
+<p>这里要指出的是，<strong>ST只负责自身thread调度，进程管理是应用程序的事情，</strong>也就是说由用户来决定fork多少进程，每个进程分配多少资源，如何进行IPC等。这种架构的好处就是每个vp有自己独立的空间，避免了资源同步竞态（比如杜绝了多进程里的多线程这样混乱的模型）。我们知道这种<strong>基于进程的架构是非常健壮的，一个进程奔溃不会影响到其它进程，同时充分利用多核硬件的高并发。</strong>同时对于具体逻辑业务使用vp里的thread处理，这是基于EDSM的，如此一来做到了<strong>逻辑业务与内核执行对象之间的解耦</strong>，没必要因为1K个连接去创建1K的进程。这就是ST的扩展性和灵活性。</p>
+<h4>使用限制</h4>
+<p>ST的主要限制在于，应用程序所有I/O操作必须使用ST提供的API，因为只有这样thread才能被调度器管理，并且避免阻塞。</p>
+<p>另一个限制在于thread调试，这本身不容易，好在v1.9的ST提供了DEBUG参数，使用TREADQ以及_st_iterate_threads接口检测thread调度情况，用户还可自定义_st_show_thread_stack接口dump每个thread的栈，在GDB使能_st_iterate_threads_flag变量，这些都在Readme中对调试方法有具体说明。按下不表。</p>
+<h4>总结</h4>
+<p>这篇文章写得有点短了，主要是通过对比来介绍ST的，其实还有大段原理可以讲，大段源码以及实战用例可以贴，但这一下子又写不过来，ST还是有点技术含量的。说白了，<strong>ST的核心思想就是利用multi-threading的简单优雅范式胜过传统异步回调的复杂晦涩实现，又利用EDSM的性能和解耦架构避免了multi-threading在系统上的开销和暗礁。</strong>学习ST告诉我们一个道理：<strong>未来技术的趋势永远都是融合的。</strong></p>
+<h4>参考</h4>
+<ul>
+<li>在<a title="sourceforge源码" href="http://sourceforge.net/projects/state-threads/files/" target="_blank">SourceForge</a>以及<a title="github源码" href="https://github.com/winlinvip/state-threads" target="_blank">github</a>上的源码：前者有历史版本及win32版本，后者只有v1.9。</li>
+</ul>
+<ul>
+<li><a title="State Threads for Internet Applications" href="http://state-threads.sourceforge.net/docs/st.html" target="_blank">State Threads for Internet Applications</a>：介绍原理的，值得一看，<a title="中文翻译" href="http://blog.csdn.net/win_lin/article/details/8242653" target="_blank">这里</a>有篇中文翻译附加单元测试（在单CPU 512M内存上创建数万个thread，CPU占用率约5%，内存约4.3K/thread）。</li>
+</ul>
+<ul>
+<li><a title="State Threads Library FAQ" href="http://state-threads.sourceforge.net/docs/faq.html" target="_blank">State Threads Library FAQ</a>：本文基于此而写。</li>
+</ul>
+<ul>
+<li><a title="API手册" href="http://state-threads.sourceforge.net/docs/reference.html" target="_blank">Complete reference</a>：API完全手册。</li>
+</ul>
+<ul>
+<li><a title="注意事项" href="http://state-threads.sourceforge.net/docs/notes.html" target="_blank">Programing Notes</a>：编程注意事项，包括信号处理，IPC，非网络I/O事件等。</li>
+</ul>
+<p>（全文完）
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="ex-in_10975" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2014年01月28日</small> <a href="http://coolshell.cn/articles/10975.html" class="wp_rp_title">一个“蝇量级” C 语言协程库</a></li><li data-position="1" data-poid="ex-in_8711" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2012年12月10日</small> <a href="http://coolshell.cn/articles/8711.html" class="wp_rp_title">程序员疫苗：代码注入</a></li><li data-position="2" data-poid="ex-in_5987" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2011年11月28日</small> <a href="http://coolshell.cn/articles/5987.html" class="wp_rp_title">如何设计“找回用户帐号”功能</a></li><li data-position="3" data-poid="ex-in_8309" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2012年09月20日</small> <a href="http://coolshell.cn/articles/8309.html" class="wp_rp_title">C/C++语言中闭包的探究及比较</a></li><li data-position="4" data-poid="ex-in_8239" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2012年09月07日</small> <a href="http://coolshell.cn/articles/8239.html" class="wp_rp_title">无锁队列的实现</a></li><li data-position="5" data-poid="ex-in_7965" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2012年08月01日</small> <a href="http://coolshell.cn/articles/7965.html" class="wp_rp_title">一个fork的面试题</a></li><li data-position="6" data-poid="ex-in_7992" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2012年08月06日</small> <a href="http://coolshell.cn/articles/7992.html" class="wp_rp_title">C++的坑真的多吗？</a></li><li data-position="7" data-poid="ex-in_11466" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2014年04月21日</small> <a href="http://coolshell.cn/articles/11466.html" class="wp_rp_title">C语言的整型溢出问题</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/12012.html/feed</wfw:commentRss>
+		<slash:comments>44</slash:comments>
+		</item>
+		<item>
+		<title>bash代码注入的安全漏洞</title>
+		<link>http://coolshell.cn/articles/11973.html</link>
+		<comments>http://coolshell.cn/articles/11973.html#comments</comments>
+		<pubDate>Sat, 27 Sep 2014 23:56:46 +0000</pubDate>
+		<dc:creator><![CDATA[陈皓]]></dc:creator>
+				<category><![CDATA[Unix/Linux]]></category>
+		<category><![CDATA[技术新闻]]></category>
+		<category><![CDATA[操作系统]]></category>
+		<category><![CDATA[网络安全]]></category>
+		<category><![CDATA[Bash]]></category>
+		<category><![CDATA[env]]></category>
+		<category><![CDATA[export]]></category>
+		<category><![CDATA[安全]]></category>
+		<category><![CDATA[安全补丁]]></category>
+		<category><![CDATA[环境变量]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=11973</guid>
+		<description><![CDATA[很多人或许对上半年发生的安全问题“心脏流血”（Heartbleed Bug）事件记忆颇深，这两天，又出现了另外 [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p><img class="alignright size-medium wp-image-11979" src="http://coolshell.cn//wp-content/uploads/2014/09/bashbug-300x152.jpg" alt="bashbug" width="300" height="152" />很多人或许对上半年发生的安全问题“心脏流血”（Heartbleed Bug）事件记忆颇深，这两天，又出现了另外一个“毁灭级”的漏洞——Bash软件安全漏洞。这个漏洞由法国GNU/Linux爱好者Stéphane Chazelas所发现。随后，美国电脑紧急应变中心（US-CERT）、红帽以及多家从事安全的公司于周三（北京时间9月24日）发出警告。 关于这个安全漏洞的细节可参看美国政府计算安全的这两个漏洞披露：<a href="http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-6271">CVE-2014-6271</a> 和 <a href="http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-7169">CVE-2014-7169</a>。</p>
+<p>这个漏洞其实是非常经典的“注入式攻击”，也就是可以向 bash注入一段命令，从bash1.14 到4.3都存在这样的漏洞。我们先来看一下这个安全问题的症状。</p>
+<h4>Shellshock (CVE-2014-6271)</h4>
+<p>下面是一个简单的测试：</p>
+<pre class="brush: bash; title: ; notranslate">$ env VAR='() { :;}; echo Bash is vulnerable!' bash -c &quot;echo Bash Test&quot;</pre>
+<p>如果你发现上面这个命令在你的bash下有这样的输出，那你就说明你的bash是有漏洞的：</p>
+<pre class="brush: bash; highlight: [1]; title: ; notranslate">Bash is vulnerable!
+Bash Test</pre>
+<p>简单地看一下，其实就是向环境变量中注入了一段代码 <strong>echo Bash is vulnerable</strong>。关于其中的原理我会在后面给出。</p>
+<p>很快，CVE-2014-6271的官方补丁出来的了——<a href="https://lists.gnu.org/archive/html/bug-bash/2014-09/msg00081.html" target="_blank">Bash-4.3 Official Patch 25</a>。</p>
+<p><span id="more-11973"></span></p>
+<h4>AfterShock &#8211; CVE-2014-7169 （又叫Incomplete fix to Shellshock）</h4>
+<p>但随后，马上有人在Twitter上发贴——<a href="http://twitter.com/taviso/statuses/514887394294652929" target="_blank">说这是一个不完整的fix</a>，并给出了相关的攻击方法。</p>
+<p><a href="http://twitter.com/taviso/statuses/514887394294652929" target="_blank"><img class="aligncenter size-medium wp-image-11974" src="http://coolshell.cn//wp-content/uploads/2014/09/bash-300x153.jpg" alt="" width="300" height="153" /></a></p>
+<p>也就是下面这段测试代码（注意，其中的sh在linux下等价于bash）：</p>
+<pre class="brush: bash; title: ; notranslate">env X='() { (a)=&gt;\' sh -c &quot;echo date&quot;; cat echo</pre>
+<p>上面这段代码运行起来会报错，但是它要的就是报错，报错后会在你在当前目录下生成一个echo的文件，这个文件的内容是一个时间文本。下面是上面 这段命令执行出来的样子。</p>
+<pre class="brush: bash; title: ; notranslate">$ env X='() { (a)=&gt;\' sh -c &quot;echo date&quot;; cat echo
+sh: X: line 1: syntax error near unexpected token `='
+sh: X: line 1: `'
+sh: error importing function definition for `X'
+Sat Sep 27 22:06:29 CST 2014</pre>
+<p>这段测试脚本代码相当的诡异，就像“天书”一样，我会在后面详细说明这段代码的原理。</p>
+<h4>原理和技术细节</h4>
+<p>要说清楚这个原理和细节，我们需要从 bash的环境变量开始说起。</p>
+<h5>bash的环境变量</h5>
+<p>环境变量大家知道吧，这个不用我普及了吧。环境变量是操作系统运行shell中的变量，很多程序会通过环境变量改变自己的执行行为。在bash中要定义一个环境变量的语法很简单（注：=号的前后不能有空格）：</p>
+<pre class="brush: bash; title: ; notranslate">$ var=&quot;hello world&quot;</pre>
+<p>然后你就可以使用这个变量了，比如：echo $var什么的。但是，我们要知道，这个变量只是一个当前shell的“局部变量”，只在当前的shell进程中可以访问，这个shell进程fork出来的进程是访问不到的。</p>
+<p>你可以做这样的测试：</p>
+<pre class="brush: bash; title: ; notranslate">
+$ var=&quot;hello coolshell&quot;
+$ echo $var
+hello coolshell
+$ bash
+$ echo $var
+</pre>
+<p>上面的测试中，第三个命令执行了一个bash，也就是开了一个bash的子进程，你就会发现var不能访问了。</p>
+<p>为了要让shell的子进程可以访问，我们需要export一下：</p>
+<pre class="brush: bash; title: ; notranslate">$ export var=&quot;hello coolshell&quot;</pre>
+<p>这样，这个环境变量就会在其子进程中可见了。</p>
+<p>如果你要查看一下有哪些环境变量可以在子进程中可见（也就是是否被export了），你可使用<strong>env</strong>命令。不过，env命令也可以用来定义export的环境变量。如下所示：</p>
+<pre class="brush: bash; title: ; notranslate">$ env var=&quot;hello haoel&quot;</pre>
+<p>有了这些基础知识还不够，我们还要知道一个基础知识——shell的函数。</p>
+<h5>bash的函数</h5>
+<p>在bash下定义一个函数很简单，如下所示：</p>
+<pre class="brush: bash; title: ; notranslate">$ foo(){ echo &quot;hello coolshell&quot;; }
+$ foo
+hello coolshell</pre>
+<p>有了上面的环境变量的基础知识后，你一定会想试试这个函数是否可以在子进程中调用，答案当然是不行的。</p>
+<pre class="brush: bash; title: ; notranslate">$ foo(){ echo &quot;hello coolshell&quot;; }
+$ foo
+hello coolshell
+$ bash
+$ foo
+bash: foo: command not found</pre>
+<p>你看，和环境变量是一样的，如果要在子进程中可以访问的话，那么，还是一样的，需要export，export有个参数 -f，意思是export一个函数。如：</p>
+<pre class="brush: bash; highlight: [4]; title: ; notranslate">$ foo(){ echo &quot;hello coolshell&quot;; }
+$ foo
+hello coolshell
+$ export -f foo
+$ bash
+$ foo
+hello coolshell</pre>
+<p>好了，我讲了这么半天的基础知识，别烦，懂了这些，你才会很容易地理解这两个漏洞是怎么回事。</p>
+<p>好，现在要进入正题。</p>
+<h5>bash的bug</h5>
+<p>从上面我们可以看到，bash的变量和函数用了一模一样的机制，如果你用env命令看一下export出来的东西，你会看到上面我们定义的变量和函数都在，如下所示（我省略了其它的环境变量）：</p>
+<pre class="brush: bash; title: ; notranslate">$ env
+var=hello coolshell
+foo=() { echo &quot;hello coolshell&quot;
+}</pre>
+<p>原来，都用同样的方式啊——<strong>无论是函数还是变量都是变量啊</strong>。于是，看都不用看bash的源代码，聪明的黑客就能猜得到——<strong>bash判断一个环境变量是不是一个函数，就看它的值是否以&#8221;()&#8221;开始</strong>。于是，一股邪念涌上心头。</p>
+<p>黑客定义了这样的环境变量（注：() 和 { 间的空格不能少）：</p>
+<pre class="brush: bash; title: ; notranslate">$ export X='() { echo &quot;inside X&quot;; }; echo &quot;outside X&quot;;'</pre>
+<p>env一下，你会看到X已经在了：</p>
+<pre class="brush: bash; title: ; notranslate">$ env
+X=(){ echo &quot;inside X&quot;; }; echo &quot;outside X&quot;;</pre>
+<p>然后，<strong>当我们在当前的bash shell进程下产生一个bash的子进程时，新的子进程会读取父进程的所有export的环境变量，并复制到自己的进程空间中，很明显，上面的X变量的函数的后面还注入了一条命令：echo &#8220;outside X&#8221;，这会在父进程向子进程复制的过程中被执行吗？</strong>（关于fork相关的东西你可以看一下我以前写的《<a title="一个fork的面试题" href="http://coolshell.cn/articles/7965.html" target="_blank">fork的一个面试题</a>》）</p>
+<p>答案是肯定的。</p>
+<pre class="brush: bash; title: ; notranslate">$ export X='() { echo &quot;inside X&quot;; }; echo &quot;outside X&quot;;'
+$ bash
+outside X</pre>
+<p>你看，一个代码注入就这样完成了。这就是bash的bug—— <strong>函数体外面的代码被默认地执行了</strong>。</p>
+<p>我们并不一定非要像上面那样创建另一个bash的子进程，我们可以使用bash -c的参数来执行一个bash子进程命令。就像这个安全漏洞的测试脚本一样：</p>
+<pre class="brush: bash; title: ; notranslate">env VAR='() { :;}; echo Bash is vulnerable!' bash -c &quot;echo Bash Test&quot;</pre>
+<p>其中，() { :;} 中的冒号就相当于/bin/true，返回true并退出。而bash -c其实就是在spawn一个bash的echo的子进程，用于触发函数体外的echo命令。所以，更为友好一点的测试脚本应该是：</p>
+<pre class="brush: bash; title: ; notranslate">env VAR='() { :;}; echo Bash is vulnerable!' bash -c &quot;echo 如果你看到了vulnerable字样说明你的bash有安全问题&quot;</pre>
+<p>OK，你应该明白这个漏洞是怎么一回事了吧。</p>
+<h4>bash漏洞的影响有多大</h4>
+<p>在网上看到好多人说这个漏洞不大，还说这个事只有那些陈旧的执行CGI脚本的网站才会有，现在已经没有网站用CGI了。我靠，这真是无知者无畏啊。</p>
+<p>我举个例子，如果你的网站中有调用操作系统的shell命令，比如你用PHP执行个exec之类的东西。这样的需求是有的，特别是对于一些需要和操作系统交互的重要的后台用于系统管理的程序。于是就会开一个bash的进程来执行。</p>
+<p>我们还知道，现在的HTTP服务器基本上都是以子进程式的，所以，其中必然会存在export 一些环境变量的事，而有的环境变量的值是从用户端来的，比如：HTTP_USER_AGENT这样的环境变量，只由浏览器发出的。其实这个变量你想写成什么就写成什么。</p>
+<p>于是，我可以把这个HTTP_USER_AGENT的环境变量设置成上述的测试脚本，只不过，我会把echo Bash is vulnerable!这个东西换成别的更为凶残的命令。呵呵。</p>
+<p>关于这个漏洞会影响哪些已有的系统，你可以自己Google，几乎所有的报告这个漏洞的文章都说了（比如：<a href="https://securityblog.redhat.com/2014/09/24/bash-specially-crafted-environment-variables-code-injection-attack/" target="_blank">这篇</a>，<a href="https://www.digitalocean.com/community/tutorials/how-to-protect-your-server-against-the-shellshock-bash-vulnerability" target="_blank">这篇</a>），我这里就不复述了。</p>
+<p>注：如果你要看看你的网站有没有这样的问题，你可以用这个在线工具测试一下：<a href="http://shellshock.brandonpotter.com/">&#8216;ShellShock&#8217; Bash Vulnerability CVE-2014-6271 Test Tool</a>。</p>
+<p>现在，你知道这事可能会很大了吧。还不赶快去打补丁。（注，yum update bash 把bash版本升级到 4.1.2-15.el6_5.2 ，<!-- <strong>但是这个版本还没有fix CVE-2014-7169，载止本文发布之时，目前还没有正式的CVE-2014-7169的补丁，你可以<a href="https://access.redhat.com/security/cve/CVE-2014-7169" target="_blank">关注Redhat的官方关于CVE-2014-7169 的 ticket</a></strong>--> ）</p>
+<h4>关于 AfterShock &#8211; CVE-2014-7169 测试脚本的解释</h4>
+<p>很多同学没有看懂下面这个测试脚本是什么意思，我这里解释一下。</p>
+<pre class="brush: bash; title: ; notranslate">env X='() { (a)=&gt;\' sh -c &quot;echo date&quot;; cat echo</pre>
+<ul>
+<li>X='() { (a)=&gt;\&#8217; 这个不用说了，定义一个X的环境变量。但是，这个函数不完整啊，是的，这是故意的。另外你一定要注意，\&#8217;不是为了单引号的转义，X这个变量的值就是 <strong>() { (a)=&gt;\</strong></li>
+</ul>
+<ul>
+<li>其中的 (a)=这个东西目的就是为了让bash的解释器出错（语法错误）。</li>
+</ul>
+<ul>
+<li>语法出错后，在缓冲区中就会只剩下了 “&gt;\”这两个字符。</li>
+</ul>
+<ul>
+<li>于是，这个神奇的bash会把后面的命令echo date换个行放到这个缓冲区中，然后执行。</li>
+</ul>
+<p>相当于在shell 下执行了下面这个命令：</p>
+<pre class="brush: bash; title: ; notranslate">$ &gt;\
+echo date</pre>
+<p>如果你了解bash，你会知道 \ 是用于命令行上换行的，于是相当于执行了：</p>
+<pre class="brush: bash; title: ; notranslate"> $ &gt;echo date</pre>
+<p>这不就是一个重定向么？上述的命令相当于：</p>
+<pre class="brush: bash; title: ; notranslate">$ date &gt; echo </pre>
+<p>于是，你的当前目录下会出现一个echo的文件，这个文件的内容就是date命令的输出。</p>
+<p><strong>能发现这个种玩法的人真是个变态，完全是为bash的源代码量身定制的一个攻击</strong>。</p>
+<p>（全文完）
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="ex-in_8619" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2012年11月23日</small> <a href="http://coolshell.cn/articles/8619.html" class="wp_rp_title">你可能不知道的Shell</a></li><li data-position="1" data-poid="ex-in_1399" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2009年09月07日</small> <a href="http://coolshell.cn/articles/1399.html" class="wp_rp_title">8个实用而有趣Bash命令提示行</a></li><li data-position="2" data-poid="ex-in_7965" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2012年08月01日</small> <a href="http://coolshell.cn/articles/7965.html" class="wp_rp_title">一个fork的面试题</a></li><li data-position="3" data-poid="ex-in_11021" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2014年02月10日</small> <a href="http://coolshell.cn/articles/11021.html" class="wp_rp_title">从“黑掉Github”学Web安全开发</a></li><li data-position="4" data-poid="ex-in_11466" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2014年04月21日</small> <a href="http://coolshell.cn/articles/11466.html" class="wp_rp_title">C语言的整型溢出问题</a></li><li data-position="5" data-poid="ex-in_6976" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2012年04月09日</small> <a href="http://coolshell.cn/articles/6976.html" class="wp_rp_title">谈谈数据安全和云存储</a></li><li data-position="6" data-poid="ex-in_5353" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2011年08月25日</small> <a href="http://coolshell.cn/articles/5353.html" class="wp_rp_title">你会做Web上的用户登录功能吗？</a></li><li data-position="7" data-poid="ex-in_6424" data-post-type="own_sourcefeed" ><small class="wp_rp_publish_date">2012年01月06日</small> <a href="http://coolshell.cn/articles/6424.html" class="wp_rp_title">Hash Collision DoS 问题</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/11973.html/feed</wfw:commentRss>
+		<slash:comments>125</slash:comments>
+		</item>
+		<item>
+		<title>互联网之子 &#8211; Aaron Swartz</title>
+		<link>http://coolshell.cn/articles/11928.html</link>
+		<comments>http://coolshell.cn/articles/11928.html#comments</comments>
+		<pubDate>Sun, 07 Sep 2014 16:26:08 +0000</pubDate>
+		<dc:creator><![CDATA[陈皓]]></dc:creator>
+				<category><![CDATA[杂项资源]]></category>
+		<category><![CDATA[轶事趣闻]]></category>
+		<category><![CDATA[Aaron Swartz]]></category>
+		<category><![CDATA[Programmer]]></category>
+		<category><![CDATA[Reddit]]></category>
+		<category><![CDATA[SOPA]]></category>
+		<category><![CDATA[程序员]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=11928</guid>
+		<description><![CDATA[ 1986年11月8日，有个叫Aaron Swartz的人在美国芝加哥伊利诺伊州出生。因为他父母创办了一个软件 [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p><img class="alignright size-medium wp-image-11929" src="http://coolshell.cn//wp-content/uploads/2014/09/Aaron_Swartz_profile-216x300.jpg" alt="Aaron_Swartz_profile" width="216" height="300" /> 1986年11月8日，有个叫Aaron Swartz的人在美国芝加哥伊利诺伊州出生。因为他父母创办了一个软件公司，所以，Aaron在3岁的时候就接触到了电脑，然后就着迷了。</p>
+<p>我们先通过Aaron Swartz 的青少年时期来看一下他是怎么样的一个天才：</p>
+<p style="padding-left: 30px;">12岁的时候Aaron就创建了一个类似于Wikipedia式的网站（那时还没有Wikipedia），13岁的时候，Aaron赢得为年轻人而设，创作教育及协同非商业网站的<a class="new" title="ArsDigita Prize" href="http://en.wikipedia.org/wiki/ArsDigita_Prize">ArsDigita Prize</a>比赛首名。 奖品包括参观麻省理工学院及与网际网路界的知名人士见会。</p>
+<p style="padding-left: 30px;">14岁的时候，他就成为了<a href="http://en.wikipedia.org/wiki/RSS">RSS1.0</a>的开发组的一员。（后来，他和 <a title="John Gruber" href="http://en.wikipedia.org/wiki/John_Gruber">John Gruber</a>一起开发了Markdown）</p>
+<p style="padding-left: 30px;">15岁的时候，进入W3C的 <a title="Resource Description Framework" href="http://en.wikipedia.org/wiki/Resource_Description_Framework">RDF</a> 核心工作组，并写了RFC3870——这个文档描述了一个新的media type &#8211; &#8220;<a title="RDF/XML" href="http://en.wikipedia.org/wiki/RDF/XML">RDF/XML</a>&#8220;，用于定义互联网上的“<a href="http://en.wikipedia.org/wiki/Semantic_Web" target="_blank">语义网络</a>”</p>
+<p style="padding-left: 30px;">17岁进入斯坦福大学，1年半后，18岁的时候因为受不了教条式的教育缀学，并通过Y Combinator公司的夏季创办人计划成立Infogami软件公司，在那里，他设想了一个Wiki平台来实现他的Internet Open Library——一个开放的网络图书馆。并写了著名的web.py 开发框架。但他觉得自己太年轻，还要有一个合伙人，于是Y Combinator建议他和Reddit合并。于是他在19岁的时候成了Reddit的创始人</p>
+<p style="padding-left: 30px;">虽然Reddit不挣钱，但是相当火，当他20岁的时候（2006年10月），他们把Reddit卖给了<a class="mw-redirect" title="Condé Nast Publications" href="http://en.wikipedia.org/wiki/Cond%C3%A9_Nast_Publications">Condé Nast出版社</a>，据说挣到了百万美金。然后，他去了这家出版社工作，受不了办公室的那种工作环境，2007年1月离职。</p>
+<p>但是，你能想得到这么天才的一个人，于2013年1月11日自杀了么？那年他才26岁。</p>
+<p><span id="more-11928"></span></p>
+<p>从前面Aaron的经历我们可以看到，他是一个特别喜欢Wiki的人，也是非常喜欢开放的人，但并不喜欢那些有CopyRight的东西，也也不喜欢那些循规蹈矩的东西，他喜欢质疑，他喜欢打破常规，他用生命坚持着互联网真正的开放精神。但是这样一来，必然会和守旧的世界相冲突。</p>
+<p>他在YC搞的那个Internet Open Library（互联网开放图书馆）的项目，他就想把那些没有Copyright的书籍和学术期刊放在网上让全世界的人免费查阅。<strong>他就认为固体的图书馆遮蔽了知识的传播，互联网理应成为连接书籍，读者，作者，纸张与思想的最好载体，他非常痛恨任何一家巨型的机构独吞所有书籍的做法。他想把Public Access 变成 Public Domain</strong>。在他的青少年时期，他就在不懈地和一切限制信息自由交换和自由共享的做法做斗争。这是他认为的互联网精神，他同时也觉得这和美国民主自由的宪法的精神是一致的。</p>
+<p>其中有一个例子是这样的，美国法院行政办公室有一个叫 <a href="http://en.wikipedia.org/wiki/PACER_(law)" target="_blank">PACER</a>（Public Access to Court Electronic Records） 的政府服务。这个服务会把法庭记录的文件放在网上，如果你要看的话，一页要付费8美分（注意是每页，不是每个文档，美国政府说这只是成本式的收费），这个事他非常不能理解，他觉得这些文件本来就属于公众，没有CopyRight，为什么属于公众的东西还要收费。PACER这个服务每年可以为政府带来1.2亿美金的收入。</p>
+<p>于是Aaron在2008年9月4日到20日，他22岁的时候，他用Perl在AWS上写了一个程序，从PACER上下载了270万的文档（2000万页，纽约时报里说他下载大约是总量的20%，但是也有人不到总量的1%）。于是FBI对他调查了两个多月，但最终没有对他起诉。（今天，PACER还在收费，不过你可以使用一个叫<a title="RECAP" href="http://en.wikipedia.org/wiki/RECAP">RECAP</a>的Firefox插件来免费浏览当年Aaron下载的相关的法律文档）</p>
+<p>2008年同年，Aaron创建了Watchdog.net &#8211;  &#8220;the good government site with teeth&#8221; 专门用来收集和呈现和政客相关的数据（这个网站访问不到了，不过你可以在<a href="http://www.aaronsw.com/weblog/watchdog" target="_blank">Aaron的blog上看一下他的想法</a>）。然后，他还起草了<i><a href="http://openaccessmanifesto.org/" target="_blank">Guerrilla Open Access Manifesto</a></i>（<a href="http://openaccessmanifesto.org/%E6%B8%B8%E5%87%BB%E9%98%9F%E5%BC%80%E6%94%BE%E8%AE%BF%E9%97%AE%E5%AE%A3%E8%A8%80/" target="_blank">中文版</a>）<i> </i>下面是节选</p>
+<blockquote><p>信息就是能源。但就像所有能源一样，有些人只想占为己有。世界上所有的科学和文化遗产，已在书籍和期刊上发布了数个世纪，正渐渐地被少数私有的公司数字化并上锁。想要阅读那些有着最著名研究成果的论文？你必须支付给如 Reed Elsevier 这样的出版商大把钱。</p>
+<p>…… ……</p>
+<p>我们要夺回信息，无论它们被存在何处，制作我们的副本并和全世界分享。我们要取到版权到期的东西并将它们归档，我们要买下秘密的资料库并将它们放到网上。我们要下载科学期刊并将它们上传到文件分享网络。我们要为游击队开放访问而战。</p>
+<p>只要全世界有足够多的我们，那就不仅是传达了一个反对知识私有化的强有力信号，我们还将让它成为过去。你愿意和我们一起吗？</p>
+<p>亚伦·斯沃茨 (Aaron Swartz) 2008 年 7 月，意大利 Eremo</p></blockquote>
+<p>Aaron觉得那些对人类有价值的科学和文化遗产属于全人类，美国大学每年会向那些出版学术期刊、论文的机构（比如 ISI，Jstor）支付许可费用，许可费用极高，他觉得这是这个时代的悲剧。于是完美主义的他产生了一种责任感。</p>
+<p>2009年，他成立了<a title="Progressive Change Campaign Committee" href="http://en.wikipedia.org/wiki/Progressive_Change_Campaign_Committee">Progressive Change Campaign Committee</a>（进步改变运动委员会），2010年，他又创建了 <a title="Demand Progress" href="http://en.wikipedia.org/wiki/Demand_Progress">Demand Progress</a> （求进会）——利用互联网来组织群众与议会和政府对话。</p>
+<p>也因为Aaron并不理解政府和这个时代的这些荒唐的行为，于是他开始学习各种政治上的东西去寻求突破，这让他在2010年到2011年，在哈佛大学Edmond J. Safra研究实验室以Lab Fellow的身份主导到了“制度腐败”课题的研究。也因为这个身份，Aaron在MIT做访问学者的时候有 <a title="JSTOR" href="http://en.wikipedia.org/wiki/JSTOR">JSTOR</a>的帐号可以通过MIT的网络访问大量的学术期刊。</p>
+<p>于是，他把他的laptop放到了地下室网络交换机的机房中，直接插上网线，然后全天后地下载那些JSTOR的学术期刊。（他利用了这些学术期刊的URL链接中的规律来下载所有的期刊），一开始JSTOR把他的帐号和IP封了，并报告给了警，美国的国家安全警察找到了那间楼道里的机房，然后让JSTOR不禁止他访问，并在那间机房里安了摄像头，钓鱼执法。然后等Aaron去换硬盘时录好像，2011年1月6日就把他给抓了。</p>
+<p>那年Aaron才24岁。2011年7月11日，检查官以通信欺诈、计算机欺诈、非法获得信息，以及破坏被保护的罪名电脑来起诉他。可能会受到35年以上的牢狱之灾。这是相当重的罪名。你能想像得到为什么罪名会这么重吗？</p>
+<p>事后，JSTOR发声明，说他们并不想起诉Aaron，起诉Aaron的是政府行为，而MIT方面虽然也放弃起诉，并也发表了相关的说明——保持中立。保持中立让MIT基本上名誉扫地，因为这种保持中立的行为违背于MIT一贯鼓吹的黑客文化，MIT成了千夫之指。</p>
+<p>当然，美国政府的检查官坚持以重罪起诉他。当时，放在Aaron前有两条路：1）认罪，承认犯下重罪，35年的判决会变成3个月入狱+1年的居家监禁（不得使用电脑），2）不认罪，那就有可能接受35监禁年的最坏结果。Aaron选择了后者，而他的女友则选择了认罪。他的第一任女友后来非常的悔恨，面对国家机器，个体太渺小了。</p>
+<p>在起诉期间，大家是否还记得美国那个臭名昭著的SOPA（ <a title="Stop Online Piracy Act" href="http://en.wikipedia.org/wiki/Stop_Online_Piracy_Act">Stop Online Piracy Act</a>）法案？Aaron通过他的 <a title="Demand Progress" href="http://en.wikipedia.org/wiki/Demand_Progress">Demand Progress</a> 把民众们网聚起来，和政府做斗争，最终导致了整个社会都在反对SOPA，也导致了那些议员纷纷改变自己的想法，并导致了白宫最终放弃了这个法案。这是一次民主的胜利，与Aaron有密切的相关。（相信大家都还记得那时美国各大网站都在反对这个网络审查制度）</p>
+<div id="attachment_11930" style="width: 510px" class="wp-caption aligncenter"><img class="wp-image-11930" src="http://coolshell.cn//wp-content/uploads/2014/09/800px-AaronSwartzPIPA.jpg" alt="斯沃茨在2012年反对禁止网络盗版法案(SOPA)的抗议活动上发言" width="500" height="331" /><p class="wp-caption-text">斯沃茨在2012年反对禁止网络盗版法案(SOPA)的抗议活动上发言</p></div>
+<p>而在次年2012年9月，政府对Aaron进行了更为严厉的起诉，新加入了另外9条起诉，如果成立，Aaron最多获刑50年外加100万美金的罚款。同样，检察官给出了优惠条件，只要Aaron认罪，那就只起诉他6个月的监禁。Aaron再次拒绝。</p>
+<p>看到这里，你觉得下载一些期刊，也没有挣钱，为什么要判他这么重呢？这后面有什么故事呢？这是不是更像是一种政治迫害呢（这段时间，好像这些消息并没有进入中国，我们的大多数人依然在使用百度在墙内活得很滋润，另外，这个事在美国那边的IT 圈闹得很大，但似乎也不见各个IT圈的老大们有没有什么表态）</p>
+<p>不过，可以肯定的是，美国政府受够了像阿桑奇这样的人了，而Aaron让美国政府更为害怕在有规模有组织的事，所以一定少不了相关的政治迫害，天下政府一般黑。</p>
+<p>之后，2013年1月11日，Aaron自杀了。大家觉得他是因为来自美国政府的长期恐吓的压力和以及长期的抑郁（理想主义者可能都会有或多或少的抑郁证）</p>
+<p><strong>这就是Aaron Swartz传奇的一生。他用他的生命捍卫了互联网的开放和自由。</strong></p>
+<p><img class="aligncenter wp-image-11932 size-full" src="http://coolshell.cn//wp-content/uploads/2014/09/87d31fea0996abbedb297c70b8b0b945_b.jpg" alt="87d31fea0996abbedb297c70b8b0b945_b" width="600" height="337" /></p>
+<p>互联网之父，<a href="http://en.wikipedia.org/wiki/Tim_Berners-Lee" target="_blank">Tim Berners-Lee</a>，在2012伦敦奥运会上的网络环节我们都见过这个人。世界上第一个web网站是1991年8月6日在CERN内的NeXT服务器上运行（今天这个网站依然可以访问：<a href="http://info.cern.ch/hypertext/WWW/TheProject.html" target="_blank">链接</a>），Tim并被没有用这个发明挣钱，而是无偿地把WWW的构想和设计推广给了全世界。《时代》周刊评论他的时候用了这样的一条话：“与所有的推动人类进程的发明不同，这是一件纯粹个人的劳动成果”。</p>
+<p>而Aaron最崇拜的人就是Tim，Tim也是Aaron的精神导师。</p>
+<p>Aaron死了以后，Aaron朋友和合作者，哈佛大学法学院教授Laurence Lessig，回忆说，他当年和仅15岁的Aaron 有过一次谈话。Aaron问他：“您刚才讲到网络审查和管制的这些弊病，那您有没有什么实际的方案来解决这些问题呢？”Lessig有点尴尬地说：“没有。我是个学者，我只负责做研究，解决问题不关我的事儿。”Aaron接着问：“您是个学者，所以解决问题不关你的事儿。那，您作为一个公民，又该如何呢？”</p>
+<p>有个男孩叫 Jack Andraka，来自巴尔的摩，14岁，阅读了 Aaron 自杀前推广的JSTOR 的免费学术论文，想出了一种提早检测胰腺癌的方法（一般胰腺癌被查出的时候就是你死的时候。）以此，他成功去了约翰霍普金斯大学做研究。Jack说——</p>
+<blockquote><p>“我之所以上了新闻，是因为我们的实验成功了，而这就是为什么 Aaron 做的事有那么重要……这个宇宙中的真理不是只有那些政策制定者曾经弄清楚过的，比如应该限速多少，它还包括那些能让你的孩子，不会因胰腺癌而死的研究。<strong>如果没有访问阅读权，那个能解决你的问题的人，可能就永远找不到答案</strong>。”</p></blockquote>
+<p>&nbsp;</p>
+<p style="text-align: center;"><strong>强烈推荐纪录片——《<a href="http://www.tudou.com/programs/view/jefojo_-HjQ/" target="_blank">互联网之子</a>》</strong></p>
+<p style="text-align: center;"><embed src="http://www.tudou.com/v/jefojo_-HjQ/&amp;bid=05&amp;resourceId=0_05_05_99/v.swf" type="application/x-shockwave-flash" width="750" height="580"></embed></p>
+<p>&nbsp;</p>
+<p>Aaron说的一句话让我挺有感触的——</p>
+<p style="text-align: center;"><strong>相信你应该真的每时每刻都问自己，现在这世界有什么最重要的事是我能参与去做的？</strong></p>
+<p style="text-align: center;"><strong>如果你没在做那最重要的事，那又是为什么？</strong></p>
+<p>&nbsp;</p>
+<p><img class="aligncenter wp-image-11934" src="http://coolshell.cn//wp-content/uploads/2014/09/aaron_swartz__freedom_fighter_by_caq_qoq-d5rzbi8.jpg" alt="aaron_swartz__freedom_fighter_by_caq_qoq-d5rzbi8" width="600" height="375" /></p>
+<p><strong>延伸阅读</strong>：<a title="偷了世界的程序员" href="http://coolshell.cn/articles/3363.html" target="_blank">偷了世界的程序员</a></p>
+<p>（全文完）
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-12052" data-post-type="none" ><small class="wp_rp_publish_date">2014年10月23日</small> <a href="http://coolshell.cn/articles/12052.html" class="wp_rp_title">Leetcode 编程训练</a></li><li data-position="1" data-poid="in-11629" data-post-type="none" ><small class="wp_rp_publish_date">2014年05月26日</small> <a href="http://coolshell.cn/articles/11629.html" class="wp_rp_title">「我只是认真」聊聊工匠情怀</a></li><li data-position="2" data-poid="in-11432" data-post-type="none" ><small class="wp_rp_publish_date">2014年04月12日</small> <a href="http://coolshell.cn/articles/11432.html" class="wp_rp_title">从Code Review 谈如何做技术</a></li><li data-position="3" data-poid="in-10804" data-post-type="none" ><small class="wp_rp_publish_date">2013年12月16日</small> <a href="http://coolshell.cn/articles/10804.html" class="wp_rp_title">X-Y Problem</a></li><li data-position="4" data-poid="in-10688" data-post-type="none" ><small class="wp_rp_publish_date">2013年11月13日</small> <a href="http://coolshell.cn/articles/10688.html" class="wp_rp_title">编程能力与编程年龄</a></li><li data-position="5" data-poid="in-10217" data-post-type="none" ><small class="wp_rp_publish_date">2013年07月24日</small> <a href="http://coolshell.cn/articles/10217.html" class="wp_rp_title">加班与效率</a></li><li data-position="6" data-poid="in-9949" data-post-type="none" ><small class="wp_rp_publish_date">2013年07月05日</small> <a href="http://coolshell.cn/articles/9949.html" class="wp_rp_title">IoC/DIP其实是一种管理思想</a></li><li data-position="7" data-poid="in-9543" data-post-type="none" ><small class="wp_rp_publish_date">2013年04月29日</small> <a href="http://coolshell.cn/articles/9543.html" class="wp_rp_title">“C++的数组不支持多态”？</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/11928.html/feed</wfw:commentRss>
+		<slash:comments>97</slash:comments>
+		</item>
+		<item>
+		<title>谜题的答案和活动的心得体会</title>
+		<link>http://coolshell.cn/articles/11847.html</link>
+		<comments>http://coolshell.cn/articles/11847.html#comments</comments>
+		<pubDate>Tue, 05 Aug 2014 23:47:50 +0000</pubDate>
+		<dc:creator><![CDATA[陈皓]]></dc:creator>
+				<category><![CDATA[杂项资源]]></category>
+		<category><![CDATA[趣味问题]]></category>
+		<category><![CDATA[Algorithm]]></category>
+		<category><![CDATA[Linux]]></category>
+		<category><![CDATA[Puzzle]]></category>
+		<category><![CDATA[Unix]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=11847</guid>
+		<description><![CDATA[我于2014年8月3日周六的上午在微博、twitter、CoolShell上发布了一个和程序员有关的解谜题的活 [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p>我于2014年8月3日周六的上午在微博、twitter、CoolShell上发布了一个和程序员有关的解谜题的活动——<a title="【活动】解迷题送礼物" href="http://coolshell.cn/articles/11832.html" target="_blank">【活动】解谜题送礼物</a>。我使用了二级域名fun.coolshell.cn做为这次活动的页面。</p>
+<p><img class="aligncenter size-full wp-image-11848" src="http://coolshell.cn//wp-content/uploads/2014/08/puzzle.png" alt="" width="543" height="206" /></p>
+<p>截止这篇文章发布的时候，fun.coolshell.cn的访问量UV大约有4万左右，通关人数大约有200人，但因为在活动的第二天网上就出了一些答题攻略，通过分析，实际靠自己能力通过的人数在130人左右。通过率大约不到4‰的样子。</p>
+<p>在这里我把整个谜题和做这个活动的东西写一下，算是给自己的一个总结。</p>
+<h4>谜题的答案和花絮</h4>
+<p>fun.coolshell.cn上一共有十道谜题，<strong>要设计这些东西还真是费尽脑汁，这让我对那些设计谜题式游戏的人相当敬佩</strong>。</p>
+<p><span id="more-11847"></span></p>
+<p style="padding-left: 30px;"><strong>第0关：</strong>很多人可能一头雾水，完全不知道这是什么，其实只要Google一下，你会知道这是一个叫BrainFuck的语言。在Coolshell.cn上我也介绍了过——《<a title="BT雷人的程序语言" href="http://coolshell.cn/articles/1142.html" target="_blank">BT雷人的程序语言</a>》《<a title="BT雷人的程序语言（大全）" href="http://coolshell.cn/articles/4458.html" target="_blank">BT雷人的程序语言（大全）</a>》，要通过这关，你需要把那段程序编译一下。要编译这段程序其实很简单，Google一个在线的编译器就可以了。（关于其它更多的古怪的编程语言请参看这里：<a href="http://esolangs.org/wiki/Language_list" target="_blank">http://esolangs.org/wiki/Language_list</a>）</p>
+<p style="padding-left: 30px;"><strong>第1关：</strong>这一关也是很简单的，你需要在网页上找到两个数，一个是X，一个是Y，然后求得X和Y的乘积。对于X，你可以观察一下那个数列游戏，对于Y，你可以Google一下就知道了（我在Coolshell的《<a title="如何用最有创造力的方式输出42" href="http://coolshell.cn/articles/11170.html" target="_blank">如何用最有创造力的方式输出42</a>》说过这个事）。</p>
+<p style="padding-left: 30px;"><strong>第2关：</strong>上面显示了一个不一样的键盘，我给了这个键盘的Wikipedia的链接。这个键盘叫Dvorak键，不同于我们的Qwert键。通过这个两个键盘的布局映射，你可以把下面那段读不懂的文字解出来（其实，你还是可以Google，有在线的转换）。把下面那段文字转成Qwert键的，你就会发现这是一段代码，这段代码非常著名，<span style="color: #000000;">是1987年国际<a href="http://www.di-mgt.com.au/src/korn_ioccc.txt" target="_blank">C语言混乱大赛一等奖的一段代码</a>（你可Google “IOCCC 87 unix”）。（关于IOCCC你可以参看Coolshell之前的《<a title="6个变态的C语言Hello World程序" href="http://coolshell.cn/articles/914.html" target="_blank">6个变态的HelloWorld</a>》、《<a title="如何加密/混乱C源代码" href="http://coolshell.cn/articles/933.html" target="_blank">如何混乱代码</a>》、《<a title="如何写出无法维护的代码" href="http://coolshell.cn/articles/4758.html" target="_blank">如何写出无法维护的代码</a>》这几篇文章）</span></p>
+<p style="padding-left: 30px;"><strong>第3关：</strong>扫描二维码以后，你会得到一个码表转换，你可以使用Shell的tr命令来转一下下面的话。转完后你就可以读懂了，读懂了你还需要使用rot13来转一下“shell”（Google一下，你会发现也有在线的转换器，另外还有其它的rot）</p>
+<p style="padding-left: 30px;"><strong>第4关</strong>：这是众多同学被卡在的地方。很多同学吐槽这题太坑了，别忘了这是游戏啊。我问了几个早先通关的同学，他们都说还好了，只要静一下心来多观察一下，你就会找出规律的。这个回文的模式是，一个大写字符和一个数字（顺序不限）把一个小字母套起来。于是，写成正则表达式是：</p>
+<pre class="brush: bash; title: ; notranslate">([A-Z])([0-9])[a-z]\2\1|([0-9])([A-Z])[a-z]\4\3</pre>
+<p style="padding-left: 30px;">用shell命令可以很快地找到9个匹配，然后，像“cat”一样，取中间的小写字母组成一个单词。写成Shell命令是：</p>
+<pre class="brush: bash; title: ; notranslate">grep -o &quot;\([A-Z]\)\([0-9]\)[a-z]\2\1\|\([0-9]\)\([A-Z]\)[a-z]\4\3&quot; cat.txt | sed -E &quot;s/(.)(.)(.)\2\1/\3/g&quot; | awk '{printf(&quot;%s&quot;,$1)}' &amp;&amp; echo &quot;&quot;</pre>
+<p style="padding-left: 30px;">这题主要考的是你的观察能力和正则表达式。</p>
+<p style="padding-left: 30px;"><strong>第5关</strong>：如果你点了一下图片后，你就知道，这个连接http://fun.coolshell.cn/n/2014返回了一个数字，如果你把这个数字放到那个URL中，不断地替换其中的数字，你会得到一个新的数字。于是你就会得到最终的答案。</p>
+<p style="padding-left: 30px;">这道题本来我是想让大家写程序的，我原来设置了一共512个序列，但是考虑到服务受不了，所以，我把它降到了128个，这样保证你的程序可以在几秒钟内得到结果，而不会对我的服务器造成压力。但是我还是看到好几个同学人肉地copy+paste+回车刷了100多下，得到了最终答案。</p>
+<p style="padding-left: 30px;"><strong>第6关：</strong>通过中序和后序遍历还原一棵二叉树，然后再找到其最深的路径，然后得到一个字符串后，把这个字符串做为一个passcode代入那个openssl的命令行中。你就可以解密密文得到下一关的答案。</p>
+<p style="padding-left: 30px;">这个题，我本想设计得更隐晦一些，用一个“心脏流血”的图片来暗示openssl，然后用别的东西暗示AES-128-CBC，后来想想算了，主要还是考大家在大学里的二叉树的最基本的算法。并介绍一下openssl的shell命令行加解密的方法。</p>
+<p style="padding-left: 30px;">在网上的一些攻略中我看到了大家没有用程序，而是手动地花了一棵树出来。（其实，这设计这道的时候，我本来想设计成随机树，也就每个人看到的答案都不一样，我随机建树并且找最深路径的程序都写好了，但是我最终还是没有这样做，因为这无疑增加我对这个网页游戏的代码复杂度，而我又没有太多的时间，而谜题的各种形式已经够让我花精力的了，你虽然看到了10道题，但是其实我设计了一共有16道题，我反复斟酌，即不想为难大家，又不想太简单和无聊，所以最终release了这十道题）</p>
+<p style="padding-left: 30px;"><strong>第7关：</strong>N皇后问题，这个问题也是大学里的题。9皇后一共有352个解，你需要把这352个解代到那个sha1的公式中（需要上一关用于解密的passcode），这样你就会得到一个解。然后这就是通关口令。</p>
+<p style="padding-left: 30px;">第6关和第7关的算法题你要是不会写的话，Google一下，反正我们是“大自然的搬运工”，不是吗？呵呵。</p>
+<p style="padding-left: 30px;">第7关这题啊，我看到一个同学用穷举的1-9的排序组合的方式来向服务发请求，从123456789开始，我都看SB了，因为这关的通答案是9开头，我勒了个去！你得对我的服务器发多少次请求啊，才能得到一个200的回复啊。TNND。服了。不过这个同学我最终还是给通过了，没有判定成作弊。</p>
+<p style="padding-left: 30px;"><strong>第8关：</strong>Excel的列号编程，这一关写成代码其实并不难的。但我看到网上给的好些答案，大家都是用手算。也OK，这题本身就没有什么难度，但是因为这个26进制是从1开始的，写出来的代码并不非常容易，一些边界条件很容易就break掉了。这题完全考的是编码。把COOLSHELL除以SHELL的数转成字符串。然后就进入最后一关了。</p>
+<p style="padding-left: 30px;">然后，我又见到有个同学用了穷举的方式，TNND，其实每道题都有人在用穷举的方式，我勒个去。他从AAA开始穷举，不一会就穷举出正确答案了。尼玛！</p>
+<p style="padding-left: 30px;"><strong>第9关：</strong>一个猪圈和一个共济会的logo，你Google一下，你就知道答案了。这题纯粹就是介绍知识的。不知道大家有没有去wikipedia上了解了一下这个猪圈密码和共济会是怎么一回事吗？这样的密文叫图片密文，还有很多类似的图片密文的。你知道吗？有相应的字库哦。也有在线的生成器哦。（因为我最近在学各种安全的基础知识，所以了解到了这个东西）</p>
+<p style="padding-left: 30px;"><strong>通关：</strong>于是你就通关了。你会发现你得到了一个helloworld，这个字符串，在我一放出来这个谜题的时候，就有很多人在尝试helloworld就是那段brainfuck的代码的输出。我汗啊。还好我做了一个比较复杂的防作弊检查……</p>
+<p>总体来说，这些关卡都不难，但是你最少也得用2-3个小时。<a href="http://fun.coolshell.cn/top100.html" target="_blank">Top100页面</a>时统计的平均时间是10个半小时。</p>
+<p>再说一个花絮，自从，8月3日上线后，8月4日在网上就有了相关的解答攻略，还是在V2EX上，于是出现了好些只花了几分钟就做完了的人。不过好在事先我就预料到了这个事，事先预备好了“反作弊分析”的脚本，细节不想说太多，反正就是说，我会记录你答案的整个过程和行为，以此来确保TOP100中的人基本都是用自己能力答的，当然，可能会有漏判，但至少也是写过代码的。</p>
+<h4>活动心得</h4>
+<p>因为是第一次做活动，所以有很多感想，下面写下一些做这个活动的心得，供大家参考：</p>
+<p><strong>1）要做好一个这样的解题游戏并不简单</strong>。</p>
+<ul>
+<li><strong>关卡设计：</strong>最花力气的地方就是设计每个关卡，我不能设计得太过隐晦，也不能设计得太过明显。最好是要符合参与者的能力，但又要高于平均以上水平的能力，最好在90%以上。这样会让大家有挑战感，但是又不会有挫败感。这个度相当难把握。总体而言，本次设计的谜题中还有很多可以改进的地方。但这毕竟是我的第一次，也算是我用其来感受一下应该怎么设计游戏。</li>
+</ul>
+<ul>
+<li><strong>游戏黏性：</strong>除了设计谜题，还需要针对用户可能会答错的地方来给用户一些提示，原因也是为了不让用户有挫败感，虽然用户没有答对，但是需要用这些页面来鼓励用户You made some progress，这个很重要。这会让用户对游戏更有粘性，并且更愿意有更多的投入。找到这些地方也不是一件容易的事，因为做为游戏的设计者来说，很难从一个不知到答案的角度去思考。所以需要试玩，在fun.coolshell.cn正式release之前，我找了几个人比较聪明的人来试玩了一下，对这个游戏的帮助很大。</li>
+</ul>
+<ul>
+<li><strong>游戏管理：</strong>这样的一个在线游戏自然会出一些作弊者，为了游戏的公平性，你需要剔除这些作弊者。所以，我设计了一些比较简单的记录用户所有过程的监测的算法。通过cookie和后台的http log来一同分析。这个部分也比较地花时间。我上周六的时候写这些代码写到了凌晨4点，导致脑子不清楚，出了些bug，导致在大家游戏过程中重置cookie等伤害用户体验的事件。所以说啊，不能赶啊，也不能加班啊。</li>
+</ul>
+<p><strong>2）关于怎么做一个活动的感想。</strong></p>
+<ul>
+<li><b>这次活动的背景</b>。首先，想做这个活动的起因是这样的。我一个朋友在微博上做活动——“转发微博或@几个人怎么怎么滴就有机获得什么什么的”，<strong>我在这里把这种活动简称为“转就送”活动</strong>。于是遭到了水军的刷奖品，导致他根本分不清楚哪些是正常人，哪些不是，因为新浪微博上有大量的这要瓣机器人，所以他这次活动最后失败了。我说，你得加点难度啊，要加点智商啊。<strong>而且，我看过太多的活动都是这样的，而且很多公司的活动也是这样的，我觉得太low了</strong>。于是，我就萌生了自己尝试一下的念头。</li>
+</ul>
+<ul>
+<li><strong>我对做活动的理解</strong>。我一直觉得网上那些诸如“转就送”或是“抽奖”这样的活动都比较SB，这些人根本就不知道怎么做活动。这样做活动不需要智商，简单粗暴，效果一点也不好，活动做完了，人就走了，人们马上就忘了。我以为做活动的精髓是这样的：</li>
+</ul>
+<ul>
+<ul>
+<li><strong>真正的价值</strong>。其实，好的活动并不只是物品的价格，而是参与这个过程的感觉和体会。如果你让人觉得这是碰运气的，那么这个活动除了用物品价格来吸引人，也就没别的什么了。<strong>如果这个活动的参与过程是让人有成就感的，要有成就感那么就需要有一定难度的挑战，而且这种挑战也是让众人认可和佩服的，那么这个奖品的价格再小，价值也会很大</strong>。比如：Olympic Game，World Cup之流的，世界顶尖，四年一次，来之不易。这才是活动的价值。本次的fun.coolshell.cn上的活动，我希望让大家在做题的过程中学到一些东西，另外也希望做出来的人有一种成就感。</li>
+</ul>
+</ul>
+<ul>
+<ul>
+<li><strong>让人有回味</strong>。那些简单的“转就送”式的活动不会让人产生任何的回味，只会让人产生很大的反感。就像那些“让你转发，不转就死全家”的东西，相当的让人反感。真正的回味是人们对活动参与过程的讨论和交互。在fun.coolshell.cn上线后，我就看到好几个社区在讨论这些谜题，这就是所谓的回味。<strong>只有人们对过程的回味，对参与的回味，才会让这个活动真正的成功</strong>。</li>
+</ul>
+</ul>
+<ul>
+<ul>
+<li><strong>暴露活动过程</strong>。有挑战的活动，一定要有一个Who&#8217;s Who的东西，而且是随时动态更新的可以让大家查询的，这样才会从另一个侧面激发大家的热情。因为fun.coolshell.cn一开始说了只给前十个人送东西，结果在过程中，我发现了就半天时间就差不多满了，那时我在想，如果没有奖品了，剩下的人还会不会玩了？于是我飞快地开发了一个TOP100的排行榜，让大家可以看得到这个过程，虽然前十以后就没有奖品了，但是，能上这TOP100也不错。于是乎，在没有奖品情况下，依然在激发着大家的解题热情。<strong>有竞争总是一件有意思的事情，因为成就感总是来自竞争</strong>。（注：为什么top100中会有“xxxxxx”的用户，因为一开始我用的是用户提交的name，但是后来有人告诉我，这个名字可能是真名，所以，我就改成了weibo或twitter的ID，而xxxxx则是没有留下微博或twitter的）</li>
+</ul>
+</ul>
+<p>最后吐个槽，<strong>我真的觉得那些“纯靠运气的活动”相当的SB，我看到好些公司的运营部门招了多少个所谓的高学历和高能力的人，结果干出来的运营活动的水平，其实，也就是个有小学文化水平的人就可以做的了</strong>。那些“转就送式的”、“抽奖式的”的活动，是个人都会干，根本不需要高学历的人。</p>
+<h4>其它</h4>
+<p>1）<strong>本次活动中，有一个隐藏关卡，还没有人找出来</strong>。要能达到隐藏关卡，需要完成所有的题目。</p>
+<p>2）<strong>活动的通关页是HelloWorld，这意味着——这仅仅是个开始</strong>。</p>
+<p>最后感谢大家为这个活动付出的时间！</p>
+<p>（全文完）</p>
+<p>&nbsp;
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-12103" data-post-type="none" ><small class="wp_rp_publish_date">2014年11月21日</small> <a href="http://coolshell.cn/articles/12103.html" class="wp_rp_title">vfork 挂掉的一个问题</a></li><li data-position="1" data-poid="in-11832" data-post-type="none" ><small class="wp_rp_publish_date">2014年08月03日</small> <a href="http://coolshell.cn/articles/11832.html" class="wp_rp_title">【活动】解迷题送礼物</a></li><li data-position="2" data-poid="in-9104" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月20日</small> <a href="http://coolshell.cn/articles/9104.html" class="wp_rp_title">sed 简明教程</a></li><li data-position="3" data-poid="in-9070" data-post-type="none" ><small class="wp_rp_publish_date">2013年02月17日</small> <a href="http://coolshell.cn/articles/9070.html" class="wp_rp_title">AWK 简明教程</a></li><li data-position="4" data-poid="in-8883" data-post-type="none" ><small class="wp_rp_publish_date">2013年01月09日</small> <a href="http://coolshell.cn/articles/8883.html" class="wp_rp_title">应该知道的Linux技巧</a></li><li data-position="5" data-poid="in-8619" data-post-type="none" ><small class="wp_rp_publish_date">2012年11月23日</small> <a href="http://coolshell.cn/articles/8619.html" class="wp_rp_title">你可能不知道的Shell</a></li><li data-position="6" data-poid="in-8088" data-post-type="none" ><small class="wp_rp_publish_date">2012年08月16日</small> <a href="http://coolshell.cn/articles/8088.html" class="wp_rp_title">对技术的态度</a></li><li data-position="7" data-poid="in-7965" data-post-type="none" ><small class="wp_rp_publish_date">2012年08月01日</small> <a href="http://coolshell.cn/articles/7965.html" class="wp_rp_title">一个fork的面试题</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/11847.html/feed</wfw:commentRss>
+		<slash:comments>93</slash:comments>
+		</item>
+		<item>
+		<title>【活动】解迷题送礼物</title>
+		<link>http://coolshell.cn/articles/11832.html</link>
+		<comments>http://coolshell.cn/articles/11832.html#comments</comments>
+		<pubDate>Sun, 03 Aug 2014 10:52:14 +0000</pubDate>
+		<dc:creator><![CDATA[陈皓]]></dc:creator>
+				<category><![CDATA[杂项资源]]></category>
+		<category><![CDATA[趣味问题]]></category>
+		<category><![CDATA[Algorithm]]></category>
+		<category><![CDATA[Puzzle]]></category>
+
+		<guid isPermaLink="false">http://coolshell.cn/?p=11832</guid>
+		<description><![CDATA[首先，先跟大家道歉一下最近CoolShell大约长达一个多月没有什么更新，原因主要在于，我去看世界杯去了，这一 [&#8230;]]]></description>
+				<content:encoded><![CDATA[<p>首先，先跟大家道歉一下最近CoolShell大约长达一个多月没有什么更新，原因主要在于，我去看世界杯去了，这一个月的世界杯熬夜看球使我的精力不佳，导致世界杯结束后的几个星期也没有缓过来，所以没有更新什么文章。好多朋友写邮件或是在微博上at我催我更新，所以有点惭愧了。</p>
+<p>精神不佳我就不写文章了。于是，世界杯过后，我每天都会抽出每天晚上和周末的一些碎片时间，我仿照一些前端过关的游戏，做了几个和程序员有关的迷题，也是要通关的，不过和前端知识没什么关系。这个游戏我放到了下面这个二级域名下。</p>
+<p style="text-align: center;"><strong><a href="http://fun.coolshell.cn/" target="_blank">http://fun.coolshell.cn/</a></strong></p>
+<p style="text-align: left;"><a href="http://fun.coolshell.cn/"><img class="aligncenter" src="http://ww2.sinaimg.cn/mw1024/538efefbgw1eiz9cvx78fj20rm0fmdi8.jpg" alt="" width="500" height="281" /></a></p>
+<p style="text-align: left;">有兴趣的朋友可以去玩玩。通关的同学我会送你们《Unix环境高级编程（第三版）》<span style="color: #423009;">（感谢<a style="color: #6c6351;" href="http://weibo.com/n/%E5%87%BA%E7%89%88%E5%9C%88%E9%83%AD%E5%BF%97%E6%95%8F?from=feed&amp;loc=at">@出版圈郭志敏</a> 赞助）或一个马克杯（感谢<a style="color: #6c6351;" href="http://weibo.com/n/linux%E5%91%BD%E4%BB%A4%E8%A1%8C%E7%B2%BE%E9%80%89%E7%BD%91?from=feed&amp;loc=at">@linux命令行精选网</a> 赞助）</span>），因为奖品数量有限，所以，我会送给前十个通关的同学（后面通关的我会随机抽几个）。</p>
+<p style="text-align: left;"><span id="more-11832"></span></p>
+<p style="text-align: center;"><img src="http://ww4.sinaimg.cn/mw1024/538efefbgw1eiz9cwlgybj2058079t8z.jpg" alt="" />  <img src="http://ww2.sinaimg.cn/mw1024/538efefbgw1eiz9d0qp1dj20c8085dgj.jpg" alt="" width="389" height="259" /></p>
+<p style="text-align: left;">最后说一下这些迷题：</p>
+<p style="text-align: left; padding-left: 30px;">1）目前一共有10个迷题。你通关会出现个Congratulations的页面和一个表单，希望你能提供一下你的联系方式（联系方式只要你的email/weibo/twitter/homepage这样你比较公开的方式）。</p>
+<p style="text-align: left; padding-left: 30px;">2）为了突出fun，所以，这些迷题中有好些基于一些“有趣”的知识的（可能有些知识你是不知道的）。</p>
+<p style="text-align: left; padding-left: 30px;">3）我使用了英文，只希望你对英文不要害怕，英文是程序员最关键的一项技能。（虽然我的英文也一般）</p>
+<p style="text-align: left; padding-left: 30px;">4）你要通关的话，你可能需要很多的Google/Wikipedia，所以，你可能需要翻墙环境。我希望你能经常翻墙。</p>
+<p style="text-align: left; padding-left: 30px;">5）另外，如果要通关的话，你需除了有比较好的观察能力，你还需要对Linux命令行有一些了解，有一半左右的题是需要写代码才能过的，写代码的题中有字符串匹配（正则表达式），网络请求，算法和数据结构，以及一些基础的加密解密知识。</p>
+<p style="text-align: left; padding-left: 30px;">6）这些题并不难，而且谜面提示得应该是非常清楚，不过，你要做完最快也需要2-3个小时，所以，在这里还是谢谢你的时间。</p>
+<p style="text-align: left;">祝大家玩得愉快！</p>
+<p style="text-align: center;"><strong>————更新：2014/8/5————</strong></p>
+<p style="text-align: center;"><span style="color: #cc0000;"><strong>本活动已结果，题的页面还在保留中……</strong></span></p>
+<p style="text-align: left;">（全文完）</p>
+<div style="margin-top: 15px; font-size: 11px;color: #cc0000;">
+<p align=center><strong>（转载本站文章请注明作者和出处 <a href="http://coolshell.cn/">酷 壳 &#8211; CoolShell.cn</a> ，请勿用于任何商业用途）</strong></div>
+<div style="text-align:center;padding:0px;font-size: 14px;margin-bottom: 50px;">——=== <b>访问 <a href=http://coolshell.cn/404/ target=_blank>酷壳404页面</a> 寻找遗失儿童。</b> ===——</div>
+
+<div class="wp_rp_wrap  wp_rp_plain" ><div class="wp_rp_content"><h3 class="related_post_title">相关文章</h3><ul class="related_post wp_rp"><li data-position="0" data-poid="in-11847" data-post-type="none" ><small class="wp_rp_publish_date">2014年08月06日</small> <a href="http://coolshell.cn/articles/11847.html" class="wp_rp_title">谜题的答案和活动的心得体会</a></li><li data-position="1" data-poid="in-3738" data-post-type="none" ><small class="wp_rp_publish_date">2011年02月28日</small> <a href="http://coolshell.cn/articles/3738.html" class="wp_rp_title">打印质数的各种算法</a></li><li data-position="2" data-poid="in-12052" data-post-type="none" ><small class="wp_rp_publish_date">2014年10月23日</small> <a href="http://coolshell.cn/articles/12052.html" class="wp_rp_title">Leetcode 编程训练</a></li><li data-position="3" data-poid="in-10590" data-post-type="none" ><small class="wp_rp_publish_date">2013年10月29日</small> <a href="http://coolshell.cn/articles/10590.html" class="wp_rp_title">二维码的生成细节和原理</a></li><li data-position="4" data-poid="in-10427" data-post-type="none" ><small class="wp_rp_publish_date">2013年10月09日</small> <a href="http://coolshell.cn/articles/10427.html" class="wp_rp_title">伙伴分配器的一个极简实现</a></li><li data-position="5" data-poid="in-9886" data-post-type="none" ><small class="wp_rp_publish_date">2013年07月14日</small> <a href="http://coolshell.cn/articles/9886.html" class="wp_rp_title">二叉树迭代器算法</a></li><li data-position="6" data-poid="in-8790" data-post-type="none" ><small class="wp_rp_publish_date">2012年12月28日</small> <a href="http://coolshell.cn/articles/8790.html" class="wp_rp_title">程序算法与人生选择</a></li><li data-position="7" data-poid="in-8593" data-post-type="none" ><small class="wp_rp_publish_date">2012年11月20日</small> <a href="http://coolshell.cn/articles/8593.html" class="wp_rp_title">如何测试洗牌程序</a></li></ul></div></div>
+]]></content:encoded>
+			<wfw:commentRss>http://coolshell.cn/articles/11832.html/feed</wfw:commentRss>
+		<slash:comments>105</slash:comments>
+		</item>
+	</channel>
+</rss>
+
+<!-- Dynamic page generated in 0.647 seconds. -->
+<!-- Cached page generated by WP-Super-Cache on 2015-05-18 20:02:28 -->
