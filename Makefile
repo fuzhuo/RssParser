@@ -1,6 +1,6 @@
 target=rssparser
 ${target}: main.cpp RssParser.cpp tinyxml2/tinyxml2.cpp
-	g++ main.cpp RssParser.cpp tinyxml2/tinyxml2.cpp -o ${target}
+	g++ -g main.cpp RssParser.cpp tinyxml2/tinyxml2.cpp -o ${target}
 run: ${target}
 	./${target} ./samples/feed.xml
 clean:

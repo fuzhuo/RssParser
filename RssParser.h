@@ -13,20 +13,19 @@ class RssItem {
     public:
         std::string title;
         std::string link;
-        std::string pubData;
-        std::string creator;
-        std::vector<std::string> category;
+        std::string pubDate;
+        //std::vector<std::string> category;
         std::string description;
         std::string content;
 };
 
 class RssData {
     public:
-        int version;
+        std::string version;
         std::string title;
         std::string link;
-        std::string desc;
-        std::string lastBuildData;
+        std::string lastBuildDate;
+        std::string description;
         std::string language;
         std::vector<RssItem> items;
 };
@@ -38,9 +37,9 @@ class RssParser
         ~RssParser();
         void initWithFeedFile(const char *feedFileName);
         void initWithString(std::string xmlContent);
-        void debug();
+        void dump();
         bool parseOK;
-        RssData data;
+        RssData rssData;
     private:
         XMLDocument *doc;
         void parse();
